@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, Fragment, useMemo } from 'rea
 import {
   FileSearch, Upload, Shield, AlertTriangle, CheckCircle, Trash2, X,
   FileText, Loader, Lock, ShieldCheck, Eye, ChevronDown, ChevronUp,
-  AlertCircle, Archive,
+  AlertCircle, Archive, Download, ShieldOff, Filter,
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -51,6 +51,10 @@ function formatBytes(n: number) {
   if (n < 1024) return n + ' B'
   if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'
   return (n / 1048576).toFixed(1) + ' MB'
+}
+
+function riskColor(level: string): string {
+  return ({ low: GREEN, medium: YELLOW, high: RED, critical: PURPLE } as Record<string, string>)[level] ?? GREEN
 }
 
 function RiskBadge({ level }: { level: string }) {
@@ -121,6 +125,11 @@ export default function ScannerPage() {
   const [confirmId,  setConfirmId]  = useState<string | null>(null)
   const [deleting,   setDeleting]   = useState(false)
   const [search,     setSearch]     = useState('')
+  const [filterRisk,   setFilterRisk]   = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDate,   setFilterDate]   = useState('all')
+  const [releasingId,  setReleasingId]  = useState<string | null>(null)
+  const [dlPdfId,      setDlPdfId]      = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -172,10 +181,53 @@ export default function ScannerPage() {
     } catch {} finally { setDeleting(false) }
   }
 
+  async function downloadCSV() {
+    try {
+      const resp = await api.get('/scanner/results/export', { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([resp.data as BlobPart], { type: 'text/csv' }))
+      const a = document.createElement('a')
+      a.href = url; a.download = 'cheetah_scans.csv'; a.click()
+      URL.revokeObjectURL(url)
+    } catch {}
+  }
+
+  async function downloadPDF(id: string, fileName: string) {
+    setDlPdfId(id)
+    try {
+      const resp = await api.get(`/scanner/results/${id}/report`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([resp.data as BlobPart], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cheetah_report_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {} finally { setDlPdfId(null) }
+  }
+
+  async function releaseQuarantine(id: string) {
+    setReleasingId(id)
+    try {
+      await api.post(`/scanner/quarantine/${id}/release`)
+      await load()
+    } catch {} finally { setReleasingId(null) }
+  }
+
   const filteredResults = useMemo(() => {
     const q = search.toLowerCase()
-    return results.filter(r => !q || r.file_name.toLowerCase().includes(q) || r.risk_level.includes(q))
-  }, [results, search])
+    const now = Date.now()
+    const cutoff =
+      filterDate === 'today' ? new Date().setHours(0, 0, 0, 0)
+      : filterDate === 'week'  ? now - 7  * 86400000
+      : filterDate === 'month' ? now - 30 * 86400000
+      : 0
+    return results.filter(r => {
+      if (filterRisk   !== 'all' && r.risk_level  !== filterRisk)   return false
+      if (filterStatus !== 'all' && r.scan_status !== filterStatus) return false
+      if (cutoff && new Date(r.scanned_at).getTime() < cutoff)     return false
+      if (q && !r.file_name.toLowerCase().includes(q) && !r.risk_level.includes(q)) return false
+      return true
+    })
+  }, [results, search, filterRisk, filterStatus, filterDate])
 
   const activeList = tab === 'quarantine' ? quarantine : filteredResults
 
@@ -183,6 +235,18 @@ export default function ScannerPage() {
     s === 'pending'      ? { background: 'rgba(59,130,246,0.08)',  border: '1px solid rgba(59,130,246,0.2)' }
     : s === 'clean'      ? { background: 'rgba(16,185,129,0.08)',  border: '1px solid rgba(16,185,129,0.2)' }
     :                      { background: 'rgba(239,68,68,0.08)',   border: '1px solid rgba(239,68,68,0.2)' }
+
+  function ChipBtn({ active, onClick, children }: { active: boolean, onClick: () => void, children: React.ReactNode }) {
+    return (
+      <button onClick={onClick}
+        className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+        style={active
+          ? { background: ACCENT, color: '#000' }
+          : { background: 'rgba(255,255,255,0.04)', color: MUTED, border: BORDER }}>
+        {children}
+      </button>
+    )
+  }
 
   return (
     <div className="p-3 md:p-6 max-w-5xl mx-auto space-y-4 md:space-y-5">
@@ -275,7 +339,6 @@ export default function ScannerPage() {
                 <span className="text-xs" style={{ color: MUTED }}>Motor: {current.scan_engine}</span>
               </div>
 
-              {/* Threats */}
               {current.threats.length > 0 ? (
                 <div className="space-y-2">
                   {current.threats.map((t, i) => (
@@ -289,12 +352,23 @@ export default function ScannerPage() {
                 <p className="text-xs font-medium" style={{ color: GREEN }}>Nenhuma ameaça detectada. Arquivo seguro.</p>
               )}
 
-              {/* PII LGPD alert */}
               <PiiBanner findings={current.pii_findings} />
 
-              {/* DOCAS seal for clean files */}
               {current.scan_status === 'clean' && !current.pii_detected && current.timestamp_token && (
                 <DocasSeal token={current.timestamp_token} />
+              )}
+
+              {current.id !== 'pending' && (
+                <button
+                  onClick={() => downloadPDF(current.id, current.file_name)}
+                  disabled={dlPdfId === current.id}
+                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{ background: 'rgba(59,130,246,0.1)', color: BLUE, border: '1px solid rgba(59,130,246,0.25)' }}>
+                  {dlPdfId === current.id
+                    ? <Loader size={11} className="animate-spin" />
+                    : <Download size={11} />}
+                  Baixar Relatório PDF
+                </button>
               )}
 
               {current.file_hash && (
@@ -307,7 +381,7 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {/* Tabs + search */}
+      {/* Tabs + search + CSV export */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex rounded-xl overflow-hidden" style={{ border: BORDER }}>
           {(['history', 'quarantine'] as Tab[]).map(t => (
@@ -321,20 +395,75 @@ export default function ScannerPage() {
             </button>
           ))}
         </div>
-        {tab === 'history' && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-0 max-w-64"
-            style={{ background: CARD, border: BORDER }}>
-            <Eye size={13} style={{ color: MUTED, flexShrink: 0 }} />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Filtrar por nome ou risco…"
-              className="bg-transparent outline-none text-xs w-full"
-              style={{ color: TEXT }}
-            />
-            {search && <button onClick={() => setSearch('')} style={{ color: MUTED }}><X size={12} /></button>}
-          </div>
-        )}
+
+        <div className="flex items-center gap-2 flex-1 justify-end flex-wrap min-w-0">
+          {tab === 'history' && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl min-w-0 max-w-52"
+              style={{ background: CARD, border: BORDER }}>
+              <Eye size={13} style={{ color: MUTED, flexShrink: 0 }} />
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Filtrar por nome…"
+                className="bg-transparent outline-none text-xs w-full"
+                style={{ color: TEXT }}
+              />
+              {search && <button onClick={() => setSearch('')} style={{ color: MUTED }}><X size={12} /></button>}
+            </div>
+          )}
+
+          {tab === 'history' && (
+            <button onClick={downloadCSV}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+              style={{ background: CARD, color: SUB, border: BORDER }}>
+              <Download size={12} /> CSV
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Active filters row (history only) */}
+      {tab === 'history' && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <Filter size={12} style={{ color: MUTED, flexShrink: 0 }} />
+
+          <div className="flex items-center gap-1 flex-wrap">
+            {[
+              { v: 'all', label: 'Todos Riscos' },
+              { v: 'low', label: 'Baixo' },
+              { v: 'medium', label: 'Médio' },
+              { v: 'high', label: 'Alto' },
+              { v: 'critical', label: 'Crítico' },
+            ].map(({ v, label }) => (
+              <ChipBtn key={v} active={filterRisk === v} onClick={() => setFilterRisk(v)}>{label}</ChipBtn>
+            ))}
+          </div>
+
+          <div className="w-px h-4" style={{ background: 'rgba(255,255,255,0.1)' }} />
+
+          <div className="flex items-center gap-1 flex-wrap">
+            {[
+              { v: 'all', label: 'Todos Status' },
+              { v: 'clean', label: 'Limpo' },
+              { v: 'threat_found', label: 'Ameaça' },
+            ].map(({ v, label }) => (
+              <ChipBtn key={v} active={filterStatus === v} onClick={() => setFilterStatus(v)}>{label}</ChipBtn>
+            ))}
+          </div>
+
+          <div className="w-px h-4" style={{ background: 'rgba(255,255,255,0.1)' }} />
+
+          <div className="flex items-center gap-1 flex-wrap">
+            {[
+              { v: 'all', label: 'Sempre' },
+              { v: 'today', label: 'Hoje' },
+              { v: 'week', label: '7 dias' },
+              { v: 'month', label: '30 dias' },
+            ].map(({ v, label }) => (
+              <ChipBtn key={v} active={filterDate === v} onClick={() => setFilterDate(v)}>{label}</ChipBtn>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Results table */}
       <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: BORDER }}>
@@ -373,7 +502,10 @@ export default function ScannerPage() {
                     <tr
                       onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
                       className="cursor-pointer transition-colors hover:bg-white/[0.02]"
-                      style={{ borderBottom: i < activeList.length - 1 || expandedId === r.id ? BORDER : 'none' }}>
+                      style={{
+                        borderBottom: i < activeList.length - 1 || expandedId === r.id ? BORDER : 'none',
+                        boxShadow: `inset 3px 0 0 ${riskColor(r.risk_level)}`,
+                      }}>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           <FileText size={13} style={{ color: MUTED, flexShrink: 0 }} />
@@ -437,7 +569,6 @@ export default function ScannerPage() {
                             MIME: {r.mime_type || 'n/a'} · Motor: {r.scan_engine}
                           </p>
 
-                          {/* Threats */}
                           {r.threats.length > 0 ? (
                             <div className="space-y-1.5 mb-2">
                               {r.threats.map((t, j) => (
@@ -451,20 +582,44 @@ export default function ScannerPage() {
                             <p className="text-xs font-medium mb-2" style={{ color: GREEN }}>Nenhuma ameaça detectada</p>
                           )}
 
-                          {/* PII findings */}
                           <PiiBanner findings={r.pii_findings} />
 
-                          {/* DOCAS seal */}
                           {r.scan_status === 'clean' && !r.pii_detected && r.timestamp_token && (
                             <DocasSeal token={r.timestamp_token} />
                           )}
 
-                          {/* Timestamp token for all files */}
                           {r.timestamp_token && (
                             <p className="text-xs font-mono mt-2 break-all" style={{ color: MUTED }}>
                               RFC-3161: {r.timestamp_token.slice(0, 64)}…
                             </p>
                           )}
+
+                          {/* Action buttons */}
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <button
+                              onClick={e => { e.stopPropagation(); downloadPDF(r.id, r.file_name) }}
+                              disabled={dlPdfId === r.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                              style={{ background: 'rgba(59,130,246,0.1)', color: BLUE, border: '1px solid rgba(59,130,246,0.2)' }}>
+                              {dlPdfId === r.id
+                                ? <Loader size={11} className="animate-spin" />
+                                : <Download size={11} />}
+                              Baixar Relatório PDF
+                            </button>
+
+                            {tab === 'quarantine' && (
+                              <button
+                                onClick={e => { e.stopPropagation(); releaseQuarantine(r.id) }}
+                                disabled={releasingId === r.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                                style={{ background: 'rgba(16,185,129,0.1)', color: GREEN, border: '1px solid rgba(16,185,129,0.25)' }}>
+                                {releasingId === r.id
+                                  ? <Loader size={11} className="animate-spin" />
+                                  : <ShieldOff size={11} />}
+                                Liberar da Quarentena
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -475,11 +630,13 @@ export default function ScannerPage() {
           </div>
         )}
 
-        {/* Footer count */}
+        {/* Footer */}
         {activeList.length > 0 && (
           <div className="px-5 py-3 flex items-center justify-between" style={{ borderTop: BORDER }}>
             <span className="text-xs" style={{ color: MUTED }}>
               {activeList.length} {activeList.length === 1 ? 'arquivo' : 'arquivos'}
+              {tab === 'history' && (filterRisk !== 'all' || filterStatus !== 'all' || filterDate !== 'all')
+                && ` (filtrado de ${results.length})`}
             </span>
             <span className="text-xs flex items-center gap-1" style={{ color: MUTED }}>
               <ShieldCheck size={11} style={{ color: ACCENT }} />

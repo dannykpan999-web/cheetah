@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     RESEND_FROM: str = "Cheetah Security <noreply@cheetah.technology>"
     # Anthropic — AI assistant
     ANTHROPIC_API_KEY: Optional[str] = None
+    # DOCAS Evidence Bridge — RFC-3161 TSA (stub active until credentials are set)
+    DOCAS_API_URL: Optional[str] = None
+    DOCAS_API_KEY: Optional[str] = None
 
     class Config:
         env_file = ".env"
