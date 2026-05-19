@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Bell, Filter, RefreshCw, X, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 
 interface Notification {
@@ -11,7 +11,7 @@ interface Notification {
   read: boolean
 }
 
-const MOCK: Notification[] = [
+const INITIAL: Notification[] = [
   { id:'1', type:'alert',   title:'Ameaça DNS Bloqueada',        desc:'Domínio malicioso interceptado: malware-c2.xyz',      tag:'dns security',  time:'2m atrás',   read:false },
   { id:'2', type:'success', title:'Scan Concluído com Sucesso',  desc:'12 arquivos verificados · nenhuma ameaça detectada',  tag:'scanner',       time:'14m atrás',  read:false },
   { id:'3', type:'alert',   title:'PII Detectado no Documento',  desc:'CPF encontrado em contrato-agosto.pdf',               tag:'lgpd · docas',  time:'1h atrás',   read:false },
@@ -26,11 +26,22 @@ const TYPE_CFG = {
   success: { bg:'rgba(34,197,94,.14)',  color:'#22C55E', Icon: CheckCircle2   },
 }
 
+type Tab = 'all' | 'unread' | 'alerts'
+
 interface Props { onClose: () => void }
 
 export default function NotificationPanel({ onClose }: Props) {
   const ref  = useRef<HTMLDivElement>(null)
-  const unread = MOCK.filter(n => !n.read).length
+  const [notifs,     setNotifs]     = useState<Notification[]>(INITIAL)
+  const [activeTab,  setActiveTab]  = useState<Tab>('all')
+
+  const unread = notifs.filter(n => !n.read).length
+
+  const filtered = notifs.filter(n => {
+    if (activeTab === 'unread') return !n.read
+    if (activeTab === 'alerts') return n.type === 'alert'
+    return true
+  })
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -40,10 +51,20 @@ export default function NotificationPanel({ onClose }: Props) {
     return () => document.removeEventListener('mousedown', h)
   }, [onClose])
 
+  function markAllRead() {
+    setNotifs(ns => ns.map(n => ({ ...n, read: true })))
+  }
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id:'all',    label:'Todas'    },
+    { id:'unread', label:'Não lidas'},
+    { id:'alerts', label:'Alertas'  },
+  ]
+
   const BTN = [
-    { Icon: Filter,    tip: 'Filtrar'    },
-    { Icon: RefreshCw, tip: 'Atualizar'  },
-    { Icon: X,         tip: 'Fechar', onClick: onClose },
+    { Icon: Filter,    tip:'Filtrar'   },
+    { Icon: RefreshCw, tip:'Atualizar', onClick: () => setNotifs(INITIAL) },
+    { Icon: X,         tip:'Fechar',   onClick: onClose },
   ]
 
   return (
@@ -106,77 +127,88 @@ export default function NotificationPanel({ onClose }: Props) {
         display:'flex', gap:2, padding:'10px 14px 0',
         borderBottom:'1px solid rgba(255,255,255,.06)',
       }}>
-        {(['Todas', 'Não lidas', 'Alertas'] as const).map((label, i) => (
-          <button key={label} style={{
-            padding:'7px 14px', borderRadius:'8px 8px 0 0',
-            fontSize:12.5, fontWeight:600, border:'none', cursor:'pointer',
-            background: i===0 ? 'rgba(245,146,27,.08)' : 'transparent',
-            color: i===0 ? '#F5921B' : '#475569',
-            borderBottom: i===0 ? '2px solid #F5921B' : '2px solid transparent',
-            transition:'all .15s', position:'relative',
-          }}>
-            {label}
-            {i===1 && unread>0 && (
-              <span style={{
-                marginLeft:5, background:'#F5921B', color:'#fff',
-                fontSize:9.5, fontWeight:800, padding:'1px 5px', borderRadius:10,
-                verticalAlign:'middle',
-              }}>{unread}</span>
-            )}
-          </button>
-        ))}
+        {TABS.map(({ id, label }) => {
+          const isActive = activeTab === id
+          return (
+            <button key={id} onClick={() => setActiveTab(id)} style={{
+              padding:'7px 14px', borderRadius:'8px 8px 0 0',
+              fontSize:12.5, fontWeight:600, border:'none', cursor:'pointer',
+              background: isActive ? 'rgba(245,146,27,.08)' : 'transparent',
+              color: isActive ? '#F5921B' : '#475569',
+              borderBottom: isActive ? '2px solid #F5921B' : '2px solid transparent',
+              transition:'all .15s', position:'relative',
+            }}>
+              {label}
+              {id === 'unread' && unread > 0 && (
+                <span style={{
+                  marginLeft:5, background:'#F5921B', color:'#fff',
+                  fontSize:9.5, fontWeight:800, padding:'1px 5px', borderRadius:10,
+                  verticalAlign:'middle',
+                }}>{unread}</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Notification list ── */}
       <div style={{ overflowY:'auto', flex:1 }}>
-        {MOCK.map((n, i) => {
-          const { bg, color, Icon } = TYPE_CFG[n.type]
-          return (
-            <div key={n.id} style={{
-              display:'flex', gap:13, padding:'14px 18px',
-              borderBottom: i < MOCK.length-1 ? '1px solid rgba(255,255,255,.04)' : 'none',
-              background: n.read ? 'transparent' : 'rgba(245,146,27,.025)',
-              cursor:'pointer', transition:'background .15s', position:'relative',
-            }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.025)')}
-              onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(245,146,27,.025)')}
-            >
-              {/* Unread left bar */}
-              {!n.read && (
+        {filtered.length === 0 ? (
+          <div style={{ padding:'32px 18px', textAlign:'center', color:'#334155', fontSize:13 }}>
+            Nenhuma notificação
+          </div>
+        ) : (
+          filtered.map((n, i) => {
+            const { bg, color, Icon } = TYPE_CFG[n.type]
+            return (
+              <div key={n.id}
+                onClick={() => setNotifs(ns => ns.map(x => x.id===n.id ? {...x, read:true} : x))}
+                style={{
+                  display:'flex', gap:13, padding:'14px 18px',
+                  borderBottom: i < filtered.length-1 ? '1px solid rgba(255,255,255,.04)' : 'none',
+                  background: n.read ? 'transparent' : 'rgba(245,146,27,.025)',
+                  cursor:'pointer', transition:'background .15s', position:'relative',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.025)')}
+                onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(245,146,27,.025)')}
+              >
+                {/* Unread left bar */}
+                {!n.read && (
+                  <div style={{
+                    position:'absolute', left:0, top:'22%', bottom:'22%',
+                    width:3, borderRadius:'0 2px 2px 0', background:'#F5921B',
+                  }}/>
+                )}
+
+                {/* Icon circle */}
                 <div style={{
-                  position:'absolute', left:0, top:'22%', bottom:'22%',
-                  width:3, borderRadius:'0 2px 2px 0', background:'#F5921B',
-                }}/>
-              )}
+                  width:38, height:38, borderRadius:11, background:bg,
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                }}>
+                  <Icon size={17} style={{ color }}/>
+                </div>
 
-              {/* Icon circle */}
-              <div style={{
-                width:38, height:38, borderRadius:11, background:bg,
-                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-              }}>
-                <Icon size={17} style={{ color }}/>
-              </div>
-
-              {/* Text */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{
-                  color:'#F1F5F9', fontSize:13, lineHeight:1.4,
-                  fontWeight: n.read ? 500 : 700,
-                }}>{n.title}</p>
-                <p style={{ color:'#475569', fontSize:11.5, marginTop:2, lineHeight:1.4 }}>{n.desc}</p>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
-                  <span style={{
-                    fontSize:11, color:'#475569',
-                    background:'rgba(255,255,255,.05)',
-                    border:'1px solid rgba(255,255,255,.07)',
-                    borderRadius:20, padding:'2px 9px',
-                  }}>{n.tag}</span>
-                  <span style={{ fontSize:11, color:'#334155' }}>{n.time}</span>
+                {/* Text */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{
+                    color:'#F1F5F9', fontSize:13, lineHeight:1.4,
+                    fontWeight: n.read ? 500 : 700,
+                  }}>{n.title}</p>
+                  <p style={{ color:'#475569', fontSize:11.5, marginTop:2, lineHeight:1.4 }}>{n.desc}</p>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
+                    <span style={{
+                      fontSize:11, color:'#475569',
+                      background:'rgba(255,255,255,.05)',
+                      border:'1px solid rgba(255,255,255,.07)',
+                      borderRadius:20, padding:'2px 9px',
+                    }}>{n.tag}</span>
+                    <span style={{ fontSize:11, color:'#334155' }}>{n.time}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
 
       {/* ── Footer ── */}
@@ -184,14 +216,20 @@ export default function NotificationPanel({ onClose }: Props) {
         padding:'12px 18px', borderTop:'1px solid rgba(255,255,255,.06)',
         display:'flex', justifyContent:'center',
       }}>
-        <button style={{
-          background:'none', border:'none', cursor:'pointer',
-          color:'#F5921B', fontSize:12.5, fontWeight:600,
-        }}
-          onMouseEnter={e => (e.currentTarget.style.opacity='.7')}
-          onMouseLeave={e => (e.currentTarget.style.opacity='1')}
+        <button
+          onClick={markAllRead}
+          disabled={unread === 0}
+          style={{
+            background:'none', border:'none',
+            cursor: unread === 0 ? 'not-allowed' : 'pointer',
+            color: unread === 0 ? '#334155' : '#F5921B',
+            fontSize:12.5, fontWeight:600,
+            transition:'opacity .15s',
+          }}
+          onMouseEnter={e => { if (unread > 0) e.currentTarget.style.opacity='.7' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity='1' }}
         >
-          Marcar todas como lidas
+          {unread === 0 ? 'Todas as notificações foram lidas' : 'Marcar todas como lidas'}
         </button>
       </div>
     </div>

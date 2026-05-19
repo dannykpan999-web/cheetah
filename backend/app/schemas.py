@@ -35,6 +35,10 @@ class UserOut(BaseModel):
     tenant_slug: Optional[str] = None
     plan: Optional[str] = None
     avatar_url: Optional[str] = None
+    notif_email_threats:  Optional[bool] = True
+    notif_email_reports:  Optional[bool] = False
+    notif_email_system:   Optional[bool] = True
+    notif_browser_alerts: Optional[bool] = True
     class Config:
         from_attributes = True
 
@@ -44,6 +48,12 @@ class UserUpdateName(BaseModel):
 class UserUpdatePassword(BaseModel):
     current_password: str
     new_password: str
+
+class UserUpdateNotifications(BaseModel):
+    email_threats:  Optional[bool] = None
+    email_reports:  Optional[bool] = None
+    email_system:   Optional[bool] = None
+    browser_alerts: Optional[bool] = None
 
 class Token(BaseModel):
     access_token: str

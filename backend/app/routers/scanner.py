@@ -4,12 +4,10 @@ import base64
 import hashlib
 import math
 import json
-import smtplib
 import logging
 from collections import Counter
 from datetime import timezone
 from datetime import datetime as dt
-from email.mime.text import MIMEText
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
@@ -19,6 +17,7 @@ from ..dependencies import get_current_user, any_role
 from ..models import ScanResult, User, Tenant, AuditLog
 from ..database import get_db
 from ..config import settings
+from .. import email as email_svc
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scanner", tags=["scanner"])
@@ -240,46 +239,26 @@ def _quarantine_file(tenant_id: str, file_hash: str, content: bytes, filename: s
         logger.warning("Quarantine write failed: %s", e)
 
 
-def _send_threat_email(db: Session, tenant_id, file_name: str, threats: list[str], risk_level: str):
-    """Send threat alert email to tenant owner/admin if SMTP configured."""
-    smtp_host = getattr(settings, "SMTP_HOST", None)
-    smtp_from = getattr(settings, "SMTP_FROM", None)
-    if not smtp_host or not smtp_from:
+def _notify_owner(db: Session, tenant_id, file_name: str, threats: list[str],
+                  risk_level: str, pii_findings: list[str]) -> None:
+    """Send threat/PII alert emails via Resend to the tenant owner/admin."""
+    if not settings.RESEND_API_KEY:
         return
-    try:
-        owner = (
-            db.query(User)
-            .filter(User.tenant_id == tenant_id, User.role.in_(["owner", "admin"]), User.is_active == True)
-            .first()
-        )
-        if not owner:
-            return
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        tenant_name = tenant.name if tenant else "sua empresa"
+    owner = (
+        db.query(User)
+        .filter(User.tenant_id == tenant_id, User.role.in_(["owner", "admin"]), User.is_active == True)
+        .first()
+    )
+    if not owner:
+        return
+    tenant      = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    tenant_name = tenant.name if tenant else "sua empresa"
 
-        body = (
-            f"⚠️ Ameaça detectada em {tenant_name}\n\n"
-            f"Arquivo: {file_name}\n"
-            f"Risco: {risk_level.upper()}\n\n"
-            f"Detecções:\n" + "\n".join(f"  • {t}" for t in threats) +
-            f"\n\nAcesse o painel: https://cheetah.technology/app/scanner"
-        )
-        msg = MIMEText(body, "plain", "utf-8")
-        msg["Subject"] = f"[Cheetah] ⚠️ Ameaça detectada: {file_name}"
-        msg["From"] = smtp_from
-        msg["To"] = owner.email
+    if threats and getattr(owner, "notif_email_threats", True):
+        email_svc.send_threat_alert(owner.email, file_name, threats, risk_level, tenant_name)
 
-        smtp_port = int(getattr(settings, "SMTP_PORT", 587))
-        smtp_user = getattr(settings, "SMTP_USER", None)
-        smtp_pass = getattr(settings, "SMTP_PASS", None)
-
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
-            s.starttls()
-            if smtp_user and smtp_pass:
-                s.login(smtp_user, smtp_pass)
-            s.sendmail(smtp_from, [owner.email], msg.as_string())
-    except Exception as e:
-        logger.warning("Email alert failed: %s", e)
+    if pii_findings and getattr(owner, "notif_email_threats", True):
+        email_svc.send_pii_alert(owner.email, file_name, pii_findings, tenant_name)
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -332,9 +311,9 @@ async def upload_scan(
     db.commit()
     db.refresh(scan)
 
-    if threat_found:
-        _send_threat_email(db, current_user.tenant_id, file.filename or "unknown",
-                           result["threats"], result["risk_level"])
+    if threat_found or pii["pii_detected"]:
+        _notify_owner(db, current_user.tenant_id, file.filename or "unknown",
+                      result["threats"], result["risk_level"], pii["pii_findings"])
 
     return {
         "id":              str(scan.id),

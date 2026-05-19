@@ -10,12 +10,11 @@ class Settings(BaseSettings):
     ADGUARD_HOST: str = "http://adguard:3000"
     ADGUARD_USER: str = "admin"
     ADGUARD_PASS: str = "adguard123"
-    # SMTP — optional, email alerts sent only when configured
-    SMTP_HOST: Optional[str] = None
-    SMTP_PORT: int = 587
-    SMTP_USER: Optional[str] = None
-    SMTP_PASS: Optional[str] = None
-    SMTP_FROM: Optional[str] = None
+    # Resend — optional, email alerts sent only when configured
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_FROM: str = "Cheetah Security <noreply@cheetah.technology>"
+    # Anthropic — AI assistant
+    ANTHROPIC_API_KEY: Optional[str] = None
 
     class Config:
         env_file = ".env"

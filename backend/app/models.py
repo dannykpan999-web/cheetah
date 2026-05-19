@@ -25,9 +25,13 @@ class User(Base):
     full_name       = Column(String(255))
     role            = Column(String(50), default="viewer")
     is_active       = Column(Boolean, default=True)
-    avatar_url      = Column(String(255), nullable=True)
-    created_at      = Column(DateTime, default=datetime.utcnow)
-    tenant          = relationship("Tenant", back_populates="users")
+    avatar_url           = Column(String(255), nullable=True)
+    notif_email_threats  = Column(Boolean, nullable=True, server_default='true',  default=True)
+    notif_email_reports  = Column(Boolean, nullable=True, server_default='false', default=False)
+    notif_email_system   = Column(Boolean, nullable=True, server_default='true',  default=True)
+    notif_browser_alerts = Column(Boolean, nullable=True, server_default='true',  default=True)
+    created_at           = Column(DateTime, default=datetime.utcnow)
+    tenant               = relationship("Tenant", back_populates="users")
 
 class DnsPolicy(Base):
     __tablename__ = "dns_policies"

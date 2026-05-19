@@ -47,11 +47,9 @@ services:
       ADGUARD_HOST: http://adguard:3000
       ADGUARD_USER: ${ADGUARD_USER:-admin}
       ADGUARD_PASS: ${ADGUARD_PASS:-adguard123}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-Cheetah Security <noreply@cheetah.technology>}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - quarantine:/var/cheetah/quarantine
       - avatars:/var/cheetah/avatars

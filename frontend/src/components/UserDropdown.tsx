@@ -35,7 +35,7 @@ export default function UserDropdown({ onClose }: Props) {
   const ITEMS = [
     { Icon: User,       label:'Meu Perfil',    sub:'Editar informações',    action: () => go('/app/profile')               },
     { Icon: Settings,   label:'Configurações', sub:'Preferências da conta', action: () => go('/app/profile?tab=settings')  },
-    { Icon: HelpCircle, label:'Suporte',       sub:'Central de ajuda',      action: () => {}                               },
+    { Icon: HelpCircle, label:'Suporte',       sub:'Central de ajuda',      action: () => go('/app/support')               },
   ]
 
   return (

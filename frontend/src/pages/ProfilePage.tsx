@@ -345,21 +345,36 @@ function PasswordTab() {
 
 /* ── Settings tab ─────────────────────────────────────────────────────────── */
 function SettingsTab() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const userRaw = JSON.parse(localStorage.getItem('user') || '{}')
   const planMap: Record<string, string> = {
     starter:'Starter', professional:'Profissional', enterprise:'Enterprise',
   }
-  const plan = planMap[user.plan] || 'Starter'
+  const plan = planMap[userRaw.plan] || 'Starter'
 
   const [notifs, setNotifs] = useState({
-    email_threats: true,
-    email_reports: false,
-    email_system:  true,
-    browser_alerts:true,
+    email_threats:  userRaw.notif_email_threats  ?? true,
+    email_reports:  userRaw.notif_email_reports  ?? false,
+    email_system:   userRaw.notif_email_system   ?? true,
+    browser_alerts: userRaw.notif_browser_alerts ?? true,
   })
+  const [saving, setSaving]   = useState(false)
+  const [saved,  setSaved]    = useState(false)
 
-  function tog(k: keyof typeof notifs) {
-    setNotifs(n => ({ ...n, [k]: !n[k] }))
+  async function tog(k: keyof typeof notifs) {
+    const next = { ...notifs, [k]: !notifs[k] }
+    setNotifs(next)
+    setSaving(true); setSaved(false)
+    try {
+      const { data } = await api.patch('/auth/me/notifications', {
+        email_threats:  next.email_threats,
+        email_reports:  next.email_reports,
+        email_system:   next.email_system,
+        browser_alerts: next.browser_alerts,
+      })
+      localStorage.setItem('user', JSON.stringify(data))
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch { /* silent */ } finally { setSaving(false) }
   }
 
   const NOTIF_ROWS = [
@@ -399,9 +414,13 @@ function SettingsTab() {
 
       {/* Notification settings */}
       <div style={{ background:C.card, border:C.brd, borderRadius:16, padding:'24px' }}>
-        <h3 style={{ color: C.text, fontWeight:700, fontSize:15, marginBottom:20 }}>
-          Preferências de notificação
-        </h3>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <h3 style={{ color: C.text, fontWeight:700, fontSize:15, margin:0 }}>
+            Preferências de notificação
+          </h3>
+          {saving && <span style={{ color:'#475569', fontSize:12 }}>Salvando...</span>}
+          {!saving && saved && <span style={{ color:'#22C55E', fontSize:12, fontWeight:600 }}>✓ Salvo</span>}
+        </div>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           {NOTIF_ROWS.map(({ key, Icon, label, desc }) => (
             <div key={key} style={{
@@ -444,7 +463,7 @@ export default function ProfilePage() {
   ] as const
 
   return (
-    <div style={{ padding:'28px 28px 48px', maxWidth:780, fontFamily:"'Inter','Segoe UI',sans-serif" }}>
+    <div style={{ padding:'28px 32px 48px', fontFamily:"'Inter','Segoe UI',sans-serif" }}>
 
       {/* Page header */}
       <div style={{ marginBottom:28 }}>
@@ -477,9 +496,47 @@ export default function ProfilePage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'profile'  && <ProfileTab/>}
-      {tab === 'password' && <PasswordTab/>}
-      {tab === 'settings' && <SettingsTab/>}
+      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,680px) 1fr', gap:24, alignItems:'start' }}>
+        <div>
+          {tab === 'profile'  && <ProfileTab/>}
+          {tab === 'password' && <PasswordTab/>}
+          {tab === 'settings' && <SettingsTab/>}
+        </div>
+        {/* Right sidebar — quick info panel */}
+        <div style={{
+          background:C.card, border:C.brd, borderRadius:16, padding:'22px',
+          display:'flex', flexDirection:'column', gap:16,
+        }}>
+          <h4 style={{ color:C.sub, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.08em', margin:0 }}>
+            Informações da conta
+          </h4>
+          {[
+            { label:'Plataforma',   value:'Cheetah Technology'          },
+            { label:'Versão',       value:'2.0.0'                       },
+            { label:'Status',       value:'Ativo ✓'                     },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+              <span style={{ color:C.muted, fontSize:11.5 }}>{label}</span>
+              <span style={{ color:C.text,  fontSize:13.5, fontWeight:600 }}>{value}</span>
+            </div>
+          ))}
+          <div style={{ height:1, background:'rgba(255,255,255,.06)' }}/>
+          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ color:C.muted, fontSize:11.5 }}>Segurança</span>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{
+                width:8, height:8, borderRadius:'50%', background:'#22C55E',
+                boxShadow:'0 0 6px rgba(34,197,94,.6)',
+              }}/>
+              <span style={{ color:'#22C55E', fontSize:13, fontWeight:600 }}>2FA disponível</span>
+            </div>
+          </div>
+          <div style={{ height:1, background:'rgba(255,255,255,.06)' }}/>
+          <p style={{ color:'#334155', fontSize:11.5, lineHeight:1.6, margin:0 }}>
+            Suas credenciais são criptografadas com bcrypt e seus tokens expiram automaticamente após 30 minutos de inatividade.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

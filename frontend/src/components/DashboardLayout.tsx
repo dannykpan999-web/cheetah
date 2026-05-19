@@ -4,6 +4,7 @@ import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu
 import { logout } from '../api/client'
 import NotificationPanel from './NotificationPanel'
 import UserDropdown from './UserDropdown'
+import ChatWidget from './ChatWidget'
 
 const C = {
   bg:     '#0B0F1A',
@@ -260,6 +261,9 @@ export default function DashboardLayout() {
           })}
         </nav>
       </div>
+
+      {/* ── AI Chat Widget ── */}
+      <ChatWidget />
     </div>
   )
 }

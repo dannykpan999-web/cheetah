@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from ..database import get_db
 from ..models import User, Tenant, AuditLog
-from ..schemas import LoginRequest, Token, UserOut, UserUpdateName, UserUpdatePassword
+from ..schemas import LoginRequest, Token, UserOut, UserUpdateName, UserUpdatePassword, UserUpdateNotifications
 from ..auth import verify_password, hash_password, create_access_token, create_refresh_token, decode_token
 from ..dependencies import get_current_user
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -19,16 +19,20 @@ AVATAR_DIR = "/var/cheetah/avatars"
 
 def _user_out(user: User) -> dict:
     return {
-        "id":          user.id,
-        "email":       user.email,
-        "full_name":   user.full_name,
-        "role":        user.role,
-        "is_active":   user.is_active,
-        "tenant_id":   user.tenant_id,
-        "created_at":  user.created_at,
-        "tenant_slug": user.tenant.slug  if user.tenant else None,
-        "plan":        user.tenant.plan  if user.tenant else None,
-        "avatar_url":  user.avatar_url,
+        "id":                  user.id,
+        "email":               user.email,
+        "full_name":           user.full_name,
+        "role":                user.role,
+        "is_active":           user.is_active,
+        "tenant_id":           user.tenant_id,
+        "created_at":          user.created_at,
+        "tenant_slug":         user.tenant.slug if user.tenant else None,
+        "plan":                user.tenant.plan if user.tenant else None,
+        "avatar_url":          user.avatar_url,
+        "notif_email_threats":  user.notif_email_threats  if user.notif_email_threats  is not None else True,
+        "notif_email_reports":  user.notif_email_reports  if user.notif_email_reports  is not None else False,
+        "notif_email_system":   user.notif_email_system   if user.notif_email_system   is not None else True,
+        "notif_browser_alerts": user.notif_browser_alerts if user.notif_browser_alerts is not None else True,
     }
 
 
@@ -91,6 +95,21 @@ def change_password(body: UserUpdatePassword, user: User = Depends(get_current_u
     user.hashed_password = hash_password(body.new_password)
     db.commit()
     return {"detail": "Senha alterada com sucesso"}
+
+
+@router.patch("/me/notifications", response_model=UserOut)
+def update_notifications(
+    body: UserUpdateNotifications,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if body.email_threats  is not None: user.notif_email_threats  = body.email_threats
+    if body.email_reports  is not None: user.notif_email_reports  = body.email_reports
+    if body.email_system   is not None: user.notif_email_system   = body.email_system
+    if body.browser_alerts is not None: user.notif_browser_alerts = body.browser_alerts
+    db.commit()
+    db.refresh(user)
+    return _user_out(user)
 
 
 # ── Avatar upload ─────────────────────────────────────────────────────────────
