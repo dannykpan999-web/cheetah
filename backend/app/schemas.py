@@ -32,8 +32,18 @@ class UserOut(BaseModel):
     is_active: bool
     tenant_id: UUID
     created_at: datetime
+    tenant_slug: Optional[str] = None
+    plan: Optional[str] = None
+    avatar_url: Optional[str] = None
     class Config:
         from_attributes = True
+
+class UserUpdateName(BaseModel):
+    full_name: Optional[str] = None
+
+class UserUpdatePassword(BaseModel):
+    current_password: str
+    new_password: str
 
 class Token(BaseModel):
     access_token: str

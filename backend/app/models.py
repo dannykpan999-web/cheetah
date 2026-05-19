@@ -25,6 +25,7 @@ class User(Base):
     full_name       = Column(String(255))
     role            = Column(String(50), default="viewer")
     is_active       = Column(Boolean, default=True)
+    avatar_url      = Column(String(255), nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
     tenant          = relationship("Tenant", back_populates="users")
 

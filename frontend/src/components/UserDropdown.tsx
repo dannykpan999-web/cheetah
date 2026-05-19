@@ -60,13 +60,21 @@ export default function UserDropdown({ onClose }: Props) {
       {/* ── User info card ── */}
       <div style={{ padding:'18px 18px 16px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{
-            width:46, height:46, borderRadius:'50%', flexShrink:0,
-            background:'linear-gradient(135deg,#F5921B,#D96820)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:17, fontWeight:800, color:'#fff',
-            boxShadow:'0 4px 16px rgba(245,146,27,.3)',
-          }}>{initials}</div>
+          {user.avatar_url ? (
+            <img src={user.avatar_url} alt="Avatar" style={{
+              width:46, height:46, borderRadius:'50%', objectFit:'cover', flexShrink:0,
+              boxShadow:'0 4px 16px rgba(245,146,27,.25)',
+              border:'2px solid rgba(245,146,27,.3)',
+            }}/>
+          ) : (
+            <div style={{
+              width:46, height:46, borderRadius:'50%', flexShrink:0,
+              background:'linear-gradient(135deg,#F5921B,#D96820)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:17, fontWeight:800, color:'#fff',
+              boxShadow:'0 4px 16px rgba(245,146,27,.3)',
+            }}>{initials}</div>
+          )}
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{
               color:'#F1F5F9', fontWeight:700, fontSize:14, marginBottom:2,

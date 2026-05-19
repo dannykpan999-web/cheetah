@@ -54,6 +54,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - quarantine:/var/cheetah/quarantine
+      - avatars:/var/cheetah/avatars
     depends_on:
       db:
         condition: service_healthy
@@ -125,6 +126,7 @@ volumes:
   pgdata:
   clamav-db:
   quarantine:
+  avatars:
   adguard-work:
   adguard-conf:
   wazuh-data:

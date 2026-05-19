@@ -82,10 +82,17 @@ export default function DashboardLayout() {
         </nav>
         <div className="px-4 py-4" style={{ borderTop: C.brd }}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg,#F5921B,#D96820)' }}>
-              {initials}
-            </div>
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt="Avatar"
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                style={{ border:'1.5px solid rgba(245,146,27,.3)' }}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg,#F5921B,#D96820)' }}>
+                {initials}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate" style={{ color: C.text }}>{user.full_name || user.email}</p>
               <p className="text-xs truncate" style={{ color: C.muted }}>{roleMap[user.role] || user.role}</p>
@@ -123,10 +130,17 @@ export default function DashboardLayout() {
             </nav>
             <div className="px-4 py-5" style={{ borderTop: C.brd }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#F5921B,#D96820)' }}>
-                  {initials}
-                </div>
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Avatar"
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                    style={{ border:'1.5px solid rgba(245,146,27,.3)' }}
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#F5921B,#D96820)' }}>
+                    {initials}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{user.full_name || user.email}</p>
                   <p className="text-xs truncate" style={{ color: C.muted }}>{roleMap[user.role] || user.role}</p>
@@ -189,14 +203,25 @@ export default function DashboardLayout() {
                 style={{ background:'none', border:'none', padding:0 }}
                 onClick={toggleUser}
               >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                  style={{
-                    background: 'linear-gradient(135deg,#F5921B,#D96820)',
-                    boxShadow: userOpen ? '0 0 0 2px rgba(245,146,27,.5)' : 'none',
-                    transition:'box-shadow .2s',
-                  }}>
-                  {initials}
-                </div>
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Avatar"
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    style={{
+                      boxShadow: userOpen ? '0 0 0 2px rgba(245,146,27,.55)' : 'none',
+                      border: '1.5px solid rgba(245,146,27,.3)',
+                      transition:'box-shadow .2s',
+                    }}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    style={{
+                      background: 'linear-gradient(135deg,#F5921B,#D96820)',
+                      boxShadow: userOpen ? '0 0 0 2px rgba(245,146,27,.5)' : 'none',
+                      transition:'box-shadow .2s',
+                    }}>
+                    {initials}
+                  </div>
+                )}
               </button>
               {userOpen && <UserDropdown onClose={() => setUserOpen(false)} />}
             </div>

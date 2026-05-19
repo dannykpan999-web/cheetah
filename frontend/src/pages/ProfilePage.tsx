@@ -1,6 +1,6 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { User, Lock, Settings, Camera, Eye, EyeOff, Shield, Bell, Globe, Save, CheckCircle } from 'lucide-react'
+import { User, Lock, Settings, Camera, Eye, EyeOff, Shield, Bell, Globe, Save, CheckCircle, Loader2 } from 'lucide-react'
 import api from '../api/client'
 
 const C = {
@@ -93,28 +93,59 @@ function SaveBtn({ loading, saved }: { loading: boolean; saved: boolean }) {
 
 /* ── Profile tab ──────────────────────────────────────────────────────────── */
 function ProfileTab() {
-  const user      = JSON.parse(localStorage.getItem('user') || '{}')
+  const userRaw   = JSON.parse(localStorage.getItem('user') || '{}')
+  const [user, setUser] = useState(userRaw)
   const initials  = (user.full_name || user.email || 'U')
     .split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
-  const [name, setName]     = useState(user.full_name || '')
-  const [loading, setLoading] = useState(false)
-  const [saved, setSaved]   = useState(false)
-  const [error, setError]   = useState('')
+  const [name,       setName]      = useState(user.full_name || '')
+  const [loading,    setLoading]   = useState(false)
+  const [saved,      setSaved]     = useState(false)
+  const [error,      setError]     = useState('')
+  const [preview,    setPreview]   = useState<string | null>(null)
+  const [uploading,  setUploading] = useState(false)
+  const [uploadErr,  setUploadErr] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPreview(URL.createObjectURL(file))
+    uploadAvatar(file)
+  }
+
+  async function uploadAvatar(file: File) {
+    setUploading(true); setUploadErr('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const { data } = await api.post('/auth/me/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      localStorage.setItem('user', JSON.stringify(data))
+      setUser(data)
+      setPreview(null)
+    } catch (err: any) {
+      setUploadErr(err.response?.data?.detail || 'Erro ao enviar imagem.')
+      setPreview(null)
+    } finally { setUploading(false) }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     setLoading(true); setError('')
     try {
-      await api.patch('/users/me', { full_name: name })
-      const updated = { ...user, full_name: name }
-      localStorage.setItem('user', JSON.stringify(updated))
+      const { data } = await api.patch('/auth/me', { full_name: name })
+      localStorage.setItem('user', JSON.stringify(data))
+      setUser(data)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {
       setError('Erro ao salvar. Tente novamente.')
     } finally { setLoading(false) }
   }
+
+  const avatarSrc = preview || (user.avatar_url ? `${user.avatar_url}?t=${Date.now()}` : null)
 
   return (
     <form onSubmit={submit}>
@@ -125,31 +156,64 @@ function ProfileTab() {
         border:C.brd, borderRadius:16, marginBottom:24,
       }}>
         <div style={{ position:'relative', flexShrink:0 }}>
-          <div style={{
-            width:80, height:80, borderRadius:'50%',
-            background:'linear-gradient(135deg,#F5921B,#D96820)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:28, fontWeight:800, color:'#fff',
-            boxShadow:'0 4px 20px rgba(245,146,27,.3)',
-          }}>{initials}</div>
-          <button type="button" style={{
+          {/* Avatar circle */}
+          {avatarSrc ? (
+            <img src={avatarSrc} alt="Avatar" style={{
+              width:80, height:80, borderRadius:'50%', objectFit:'cover',
+              boxShadow:'0 4px 20px rgba(245,146,27,.25)',
+              border:'2px solid rgba(245,146,27,.3)',
+            }}/>
+          ) : (
+            <div style={{
+              width:80, height:80, borderRadius:'50%',
+              background:'linear-gradient(135deg,#F5921B,#D96820)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:28, fontWeight:800, color:'#fff',
+              boxShadow:'0 4px 20px rgba(245,146,27,.3)',
+            }}>{initials}</div>
+          )}
+
+          {/* Upload overlay */}
+          <button type="button" onClick={() => fileRef.current?.click()} style={{
             position:'absolute', bottom:0, right:0,
             width:28, height:28, borderRadius:'50%',
-            background:C.card, border:`2px solid ${C.bg}`,
+            background: uploading ? 'rgba(245,146,27,.9)' : C.card,
+            border:`2px solid ${C.bg}`,
             display:'flex', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', color: C.sub,
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            color: uploading ? '#fff' : C.sub,
+            transition:'background .2s',
           }}>
-            <Camera size={13}/>
+            {uploading
+              ? <Loader2 size={13} style={{ animation:'spin 1s linear infinite' }}/>
+              : <Camera size={13}/>
+            }
           </button>
+
+          {/* Hidden file input */}
+          <input
+            ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+            style={{ display:'none' }} onChange={onFileChange}
+          />
         </div>
+
         <div>
           <p style={{ color: C.text, fontWeight:700, fontSize:16, marginBottom:4 }}>
             {user.full_name || 'Usuário'}
           </p>
-          <p style={{ color: C.muted, fontSize:13, marginBottom:10 }}>{user.email}</p>
-          <p style={{ color:'#334155', fontSize:12 }}>JPG ou PNG · máx. 800×800 px</p>
+          <p style={{ color: C.muted, fontSize:13, marginBottom:8 }}>{user.email}</p>
+          {uploadErr
+            ? <p style={{ color:'#FCA5A5', fontSize:12 }}>{uploadErr}</p>
+            : uploading
+              ? <p style={{ color:'#F5921B', fontSize:12 }}>Enviando foto...</p>
+              : <p style={{ color:'#334155', fontSize:12 }}>
+                  Clique no ícone de câmera · JPG, PNG ou WebP · máx. 2MB
+                </p>
+          }
         </div>
       </div>
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
 
       {/* Form */}
       <div style={{
@@ -198,7 +262,7 @@ function PasswordTab() {
     if (form.newpwd.length < 6) { setError('Nova senha deve ter ao menos 6 caracteres'); return }
     setLoading(true); setError('')
     try {
-      await api.patch('/users/me/password', { current_password: form.current, new_password: form.newpwd })
+      await api.patch('/auth/me/password', { current_password: form.current, new_password: form.newpwd })
       setForm({ current:'', newpwd:'', confirm:'' })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
