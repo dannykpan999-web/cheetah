@@ -7,6 +7,7 @@ import OverviewPage from './pages/OverviewPage'
 import DnsPage from './pages/DnsPage'
 import ScannerPage from './pages/ScannerPage'
 import EndpointPage from './pages/EndpointPage'
+import ProfilePage from './pages/ProfilePage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   return localStorage.getItem('access_token') ? <>{children}</> : <Navigate to="/login" replace />
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="dns" element={<DnsPage />} />
           <Route path="scanner" element={<ScannerPage />} />
           <Route path="endpoint" element={<EndpointPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

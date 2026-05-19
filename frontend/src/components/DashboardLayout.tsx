@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu, X } from 'lucide-react'
 import { logout } from '../api/client'
+import NotificationPanel from './NotificationPanel'
+import UserDropdown from './UserDropdown'
 
 const C = {
   bg:     '#0B0F1A',
@@ -52,6 +54,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function DashboardLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [notifOpen,  setNotifOpen]  = useState(false)
+  const [userOpen,   setUserOpen]   = useState(false)
+
+  function toggleNotif() { setNotifOpen(v => !v); setUserOpen(false) }
+  function toggleUser()  { setUserOpen(v => !v);  setNotifOpen(false) }
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const roleMap: Record<string, string> = { owner: 'Proprietario', admin: 'Administrador', viewer: 'Visualizador' }
   const initials = (user.full_name || user.email || 'U')
@@ -161,17 +168,39 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button className="relative w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/5"
-              style={{ border: C.brd }}>
-              <Bell size={15} style={{ color: C.muted }} />
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full" style={{ background: C.accent }} />
-            </button>
-            <div className="flex items-center gap-2 pl-2 md:pl-3" style={{ borderLeft: C.brd }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#F5921B,#D96820)' }}>
-                {initials}
-              </div>
+
+            {/* Bell + NotificationPanel */}
+            <div style={{ position:'relative' }}>
+              <button
+                className="relative w-9 h-9 rounded-xl flex items-center justify-center hover:bg-white/5"
+                style={{ border: C.brd }}
+                onClick={toggleNotif}
+              >
+                <Bell size={15} style={{ color: notifOpen ? C.accent : C.muted }} />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full" style={{ background: C.accent }} />
+              </button>
+              {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
             </div>
+
+            {/* Avatar + UserDropdown */}
+            <div style={{ position:'relative', borderLeft: C.brd, paddingLeft:12 }}>
+              <button
+                className="flex items-center gap-2 cursor-pointer"
+                style={{ background:'none', border:'none', padding:0 }}
+                onClick={toggleUser}
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                  style={{
+                    background: 'linear-gradient(135deg,#F5921B,#D96820)',
+                    boxShadow: userOpen ? '0 0 0 2px rgba(245,146,27,.5)' : 'none',
+                    transition:'box-shadow .2s',
+                  }}>
+                  {initials}
+                </div>
+              </button>
+              {userOpen && <UserDropdown onClose={() => setUserOpen(false)} />}
+            </div>
+
           </div>
         </header>
 
