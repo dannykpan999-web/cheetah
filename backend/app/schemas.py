@@ -1,0 +1,71 @@
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+from uuid import UUID
+from datetime import datetime
+
+class TenantCreate(BaseModel):
+    name: str
+    slug: str
+    plan: str = "starter"
+
+class TenantOut(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    plan: str
+    is_active: bool
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = None
+    role: str = "viewer"
+
+class UserOut(BaseModel):
+    id: UUID
+    email: str
+    full_name: Optional[str]
+    role: str
+    is_active: bool
+    tenant_id: UUID
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    tenant_slug: str
+
+class DnsPolicyCreate(BaseModel):
+    domain: str
+    policy_type: str  # blacklist or whitelist
+    category: str = "custom"
+
+class DnsPolicyOut(BaseModel):
+    id: UUID
+    domain: str
+    policy_type: str
+    category: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class DnsStats(BaseModel):
+    total_queries: int
+    blocked_today: int
+    allowed_today: int
+    top_blocked: List[dict]
+
+class HealthOut(BaseModel):
+    status: str
+    version: str
+    tenant_count: int
