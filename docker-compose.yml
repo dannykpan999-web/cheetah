@@ -1,0 +1,136 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: cheetah-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cheetah}
+      POSTGRES_USER: ${POSTGRES_USER:-cheetah}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cheetah123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - cheetah-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cheetah}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clamav:
+    image: clamav/clamav:stable
+    container_name: cheetah-clamav
+    restart: always
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+    volumes:
+      - clamav-db:/var/lib/clamav
+    networks:
+      - cheetah-net
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 20s
+      retries: 5
+      start_period: 120s
+
+  backend:
+    build: ./backend
+    container_name: cheetah-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cheetah}:${POSTGRES_PASSWORD:-cheetah123}@db:5432/${POSTGRES_DB:-cheetah}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      ADGUARD_HOST: http://adguard:3000
+      ADGUARD_USER: ${ADGUARD_USER:-admin}
+      ADGUARD_PASS: ${ADGUARD_PASS:-adguard123}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - quarantine:/var/cheetah/quarantine
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cheetah-net
+
+  frontend:
+    build: ./frontend
+    container_name: cheetah-frontend
+    restart: always
+    networks:
+      - cheetah-net
+
+  wazuh:
+    image: wazuh/wazuh-manager:4.7.4
+    container_name: cheetah-wazuh
+    restart: always
+    environment:
+      WAZUH_MANAGER_PASSWORD: ${WAZUH_PASSWORD:-change-this-wazuh-password}
+    volumes:
+      - wazuh-data:/var/ossec/data
+      - wazuh-logs:/var/ossec/logs
+      - wazuh-etc:/var/ossec/etc
+    ports:
+      - "1514:1514/udp"
+      - "1514:1514/tcp"
+      - "1515:1515/tcp"
+    networks:
+      - cheetah-net
+    healthcheck:
+      test: ["CMD", "/var/ossec/bin/wazuh-control", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: cheetah-adguard
+    restart: always
+    volumes:
+      - adguard-work:/opt/adguardhome/work
+      - adguard-conf:/opt/adguardhome/conf
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "853:853/tcp"
+    networks:
+      - cheetah-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: cheetah-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+      - adguard
+    networks:
+      - cheetah-net
+
+volumes:
+  pgdata:
+  clamav-db:
+  quarantine:
+  adguard-work:
+  adguard-conf:
+  wazuh-data:
+  wazuh-logs:
+  wazuh-etc:
+
+networks:
+  cheetah-net:
+    driver: bridge
