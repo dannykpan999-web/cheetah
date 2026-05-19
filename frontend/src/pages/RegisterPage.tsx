@@ -179,67 +179,6 @@ function NetworkCanvas() {
   return <canvas ref={ref} style={{ position:'absolute',inset:0,width:'100%',height:'100%' }}/>
 }
 
-/* ── Animated network-sphere SVG hero ────────────────────────────────────── */
-function HeroVisual() {
-  return (
-    <div className="ct-hero" style={{ width:260, height:260, position:'relative', margin:'0 auto' }}>
-      <div style={{
-        position:'absolute', inset:-24, borderRadius:'50%',
-        background:'radial-gradient(circle, rgba(245,146,27,.16) 0%, transparent 70%)',
-      }} className="ct-glow"/>
-      <img src="/hero-register.png" alt=""
-        onError={e=>{(e.target as HTMLImageElement).style.display='none'}}
-        style={{ width:'100%',height:'100%',objectFit:'contain',position:'absolute',inset:0 }}
-      />
-      {/* SVG placeholder — network globe */}
-      <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"
-        style={{ width:'100%', height:'100%' }}>
-        <defs>
-          <radialGradient id="rg" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="rgba(245,146,27,.2)"/>
-            <stop offset="100%" stopColor="rgba(245,146,27,0)"/>
-          </radialGradient>
-        </defs>
-        {/* outer circle */}
-        <circle cx="100" cy="100" r="75" stroke="rgba(245,146,27,.2)" strokeWidth="1"/>
-        <circle cx="100" cy="100" r="75" fill="url(#rg)"/>
-        {/* latitude lines */}
-        {[70,90,110,130].map(y=>(
-          <ellipse key={y} cx="100" cy={y} rx={Math.sqrt(75*75-(y-100)*(y-100))} ry="10"
-            stroke="rgba(245,146,27,.15)" strokeWidth=".8" fill="none"/>
-        ))}
-        {/* longitude lines */}
-        <line x1="100" y1="25" x2="100" y2="175" stroke="rgba(245,146,27,.15)" strokeWidth=".8"/>
-        <ellipse cx="100" cy="100" rx="30" ry="75" stroke="rgba(245,146,27,.15)" strokeWidth=".8" fill="none"/>
-        <ellipse cx="100" cy="100" rx="55" ry="75" stroke="rgba(245,146,27,.15)" strokeWidth=".8" fill="none"/>
-        {/* nodes at intersections */}
-        {[
-          [100,25],[100,175],[25,100],[175,100],
-          [55,55],[145,55],[55,145],[145,145],
-          [70,80],[130,80],[70,120],[130,120],
-          [100,60],[100,140],[60,100],[140,100],
-        ].map(([cx,cy],i)=>(
-          <circle key={i} cx={cx} cy={cy} r="3" fill="rgba(245,146,27,.7)"/>
-        ))}
-        {/* connecting lines between some nodes */}
-        {[
-          [[100,25],[55,55]],[[100,25],[145,55]],
-          [[25,100],[55,55]],[[25,100],[55,145]],
-          [[175,100],[145,55]],[[175,100],[145,145]],
-          [[100,175],[55,145]],[[100,175],[145,145]],
-          [[70,80],[100,60]],[[130,80],[100,60]],
-          [[70,120],[100,140]],[[130,120],[100,140]],
-        ].map(([[x1,y1],[x2,y2]],i)=>(
-          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke="rgba(245,146,27,.3)" strokeWidth=".8"/>
-        ))}
-        {/* center dot */}
-        <circle cx="100" cy="100" r="5" fill="rgba(245,146,27,.9)"/>
-        <circle cx="100" cy="100" r="9" fill="none" stroke="rgba(245,146,27,.3)" strokeWidth="1"/>
-      </svg>
-    </div>
-  )
-}
 
 /* ── Step indicator ──────────────────────────────────────────────────────── */
 function StepBar({ step }: { step: number }) {
@@ -375,45 +314,75 @@ export default function RegisterPage() {
         {/* ── LEFT PANEL ─────────────────────────────────────────── */}
         <div style={{
           width:'45%', minHeight:'100vh', position:'relative',
-          background:'linear-gradient(160deg,#0A0E1A 0%,#0D1020 100%)',
-          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-          overflow:'hidden', padding:'40px 32px',
+          background:'#0A0E1A',
+          display:'flex', flexDirection:'column',
+          overflow:'hidden',
         }} className="ct-left-panel">
+          {/* network canvas */}
           <NetworkCanvas/>
-          <div className="ct-glow" style={{
-            position:'absolute', top:'20%', left:'50%', transform:'translateX(-50%)',
-            width:360, height:360, borderRadius:'50%',
-            background:'radial-gradient(circle, rgba(245,146,27,.1) 0%, transparent 70%)',
-            pointerEvents:'none',
+
+          {/* hero image — full panel */}
+          <img
+            src="/hero-register.png"
+            alt=""
+            onError={e=>{(e.target as HTMLImageElement).style.display='none'}}
+            style={{
+              position:'absolute', inset:0, width:'100%', height:'100%',
+              objectFit:'contain', objectPosition:'center 42%',
+              pointerEvents:'none', zIndex:1,
+            }}
+          />
+
+          {/* top fade for logo readability */}
+          <div style={{
+            position:'absolute', top:0, left:0, right:0, height:'30%',
+            background:'linear-gradient(to bottom, rgba(10,14,26,.95) 0%, transparent 100%)',
+            pointerEvents:'none', zIndex:2,
           }}/>
 
-          <div style={{ position:'relative', zIndex:2, textAlign:'center', width:'100%', maxWidth:360 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:40 }}>
+          {/* bottom fade for text readability */}
+          <div style={{
+            position:'absolute', bottom:0, left:0, right:0, height:'48%',
+            background:'linear-gradient(to top, rgba(10,14,26,1) 0%, rgba(10,14,26,.8) 50%, transparent 100%)',
+            pointerEvents:'none', zIndex:2,
+          }}/>
+
+          {/* content */}
+          <div style={{ position:'relative', zIndex:3, display:'flex', flexDirection:'column', minHeight:'100vh', padding:'40px 36px' }}>
+            {/* logo */}
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <img src="/logo-icon.png" alt="Cheetah" style={{ height:36 }}/>
               <span style={{ color:'#F1F5F9', fontWeight:800, fontSize:18, letterSpacing:-.3 }}>
                 Cheetah Technology
               </span>
             </div>
 
-            <HeroVisual/>
+            <div style={{ flex:1 }}/>
 
-            <div style={{ marginTop:32 }}>
-              <h2 style={{ color:'#F1F5F9', fontSize:22, fontWeight:800, letterSpacing:-.5, marginBottom:8 }}>
+            {/* tagline + bullets */}
+            <div>
+              <h2 style={{ color:'#F1F5F9', fontSize:26, fontWeight:800, letterSpacing:-.5, marginBottom:8 }}>
                 Comece em <span style={{ color:'#F5921B' }}>minutos</span>
               </h2>
-              <p style={{ color:'#475569', fontSize:13.5, lineHeight:1.6 }}>
+              <p style={{ color:'#94A3B8', fontSize:13.5, lineHeight:1.6, marginBottom:20 }}>
                 Configure sua empresa e tenha proteção completa desde o primeiro login
               </p>
-            </div>
 
-            <div style={{ marginTop:28, display:'flex', flexDirection:'column', gap:8 }}>
-              {[
-                '✓  Sem cartão de crédito para começar',
-                '✓  Setup em menos de 2 minutos',
-                '✓  Cancelamento a qualquer momento',
-              ].map(t => (
-                <p key={t} style={{ color:'#475569', fontSize:13 }}>{t}</p>
-              ))}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {[
+                  '✓  Sem cartão de crédito para começar',
+                  '✓  Setup em menos de 2 minutos',
+                  '✓  Cancelamento a qualquer momento',
+                ].map(t => (
+                  <div key={t} style={{
+                    display:'flex', alignItems:'center', gap:10,
+                    background:'rgba(0,0,0,.4)', border:'1px solid rgba(255,255,255,.08)',
+                    borderRadius:10, padding:'10px 14px',
+                  }}>
+                    <span style={{ color:'#94A3B8', fontSize:13 }}>{t}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

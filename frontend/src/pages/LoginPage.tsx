@@ -169,67 +169,6 @@ function NetworkCanvas() {
   return <canvas ref={ref} style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} />
 }
 
-/* ── Animated SVG hero (replace src with hero-login.png when generated) ─── */
-function HeroVisual() {
-  return (
-    <div className="ct-hero" style={{ width:260, height:260, position:'relative', margin:'0 auto' }}>
-      {/* outer glow ring */}
-      <div style={{
-        position:'absolute', inset:-20,
-        borderRadius:'50%',
-        background:'radial-gradient(circle, rgba(245,146,27,.18) 0%, transparent 70%)',
-      }} className="ct-glow" />
-      {/* use hero-login.png if available, else SVG placeholder */}
-      <img
-        src="/hero-login.png"
-        alt=""
-        onError={e => { (e.target as HTMLImageElement).style.display='none' }}
-        style={{ width:'100%', height:'100%', objectFit:'contain', position:'absolute', inset:0 }}
-      />
-      {/* SVG fallback shield */}
-      <svg viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg"
-        style={{ width:'100%', height:'100%' }}>
-        <defs>
-          <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F5921B"/>
-            <stop offset="100%" stopColor="#C73E1D"/>
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="4" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>
-        </defs>
-        {/* shield body */}
-        <path d="M100 8 L168 38 L168 110 Q168 160 100 192 Q32 160 32 110 L32 38 Z"
-          fill="rgba(245,146,27,.08)" stroke="url(#sg)" strokeWidth="1.5" filter="url(#glow)" />
-        {/* inner shield */}
-        <path d="M100 28 L152 52 L152 108 Q152 148 100 172 Q48 148 48 108 L48 52 Z"
-          fill="rgba(245,146,27,.05)" stroke="rgba(245,146,27,.35)" strokeWidth="1" />
-        {/* cheetah circuit face — eyes */}
-        <circle cx="82" cy="90" r="6" fill="rgba(245,146,27,.7)" filter="url(#glow)" />
-        <circle cx="118" cy="90" r="6" fill="rgba(245,146,27,.7)" filter="url(#glow)" />
-        {/* nose */}
-        <circle cx="100" cy="108" r="3.5" fill="rgba(245,146,27,.5)" />
-        {/* circuit lines */}
-        <line x1="82" y1="84" x2="82" y2="60" stroke="rgba(245,146,27,.4)" strokeWidth="1.2"/>
-        <line x1="118" y1="84" x2="118" y2="60" stroke="rgba(245,146,27,.4)" strokeWidth="1.2"/>
-        <line x1="76" y1="60" x2="90" y2="60" stroke="rgba(245,146,27,.4)" strokeWidth="1.2"/>
-        <line x1="110" y1="60" x2="124" y2="60" stroke="rgba(245,146,27,.4)" strokeWidth="1.2"/>
-        <line x1="100" y1="108" x2="100" y2="130" stroke="rgba(245,146,27,.35)" strokeWidth="1.2"/>
-        <line x1="82" y1="96" x2="66" y2="104" stroke="rgba(245,146,27,.3)" strokeWidth="1.2"/>
-        <line x1="118" y1="96" x2="134" y2="104" stroke="rgba(245,146,27,.3)" strokeWidth="1.2"/>
-        {/* dots at circuit ends */}
-        {[[76,60],[90,60],[110,60],[124,60],[66,104],[134,104],[100,130]].map(([cx,cy],i)=>(
-          <circle key={i} cx={cx} cy={cy} r="2.5" fill="rgba(245,146,27,.7)" />
-        ))}
-        {/* lock icon at bottom */}
-        <rect x="88" y="145" width="24" height="20" rx="4" fill="rgba(245,146,27,.15)" stroke="rgba(245,146,27,.5)" strokeWidth="1.2"/>
-        <path d="M93 145 Q93 136 100 136 Q107 136 107 145" stroke="rgba(245,146,27,.5)" strokeWidth="1.2" fill="none"/>
-        <circle cx="100" cy="155" r="2.5" fill="rgba(245,146,27,.7)" />
-      </svg>
-    </div>
-  )
-}
 
 /* ── Main component ──────────────────────────────────────────────────────── */
 export default function LoginPage() {
@@ -268,61 +207,77 @@ export default function LoginPage() {
         {/* ── LEFT PANEL ─────────────────────────────────────────── */}
         <div style={{
           width:'45%', minHeight:'100vh', position:'relative',
-          background:'linear-gradient(160deg,#0A0E1A 0%,#0D1020 100%)',
-          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-          overflow:'hidden', padding:'40px 32px',
+          background:'#0A0E1A',
+          display:'flex', flexDirection:'column',
+          overflow:'hidden',
         }} className="ct-left-panel">
-          {/* canvas */}
+          {/* network canvas */}
           <NetworkCanvas />
 
-          {/* ambient glow */}
-          <div className="ct-glow" style={{
-            position:'absolute', top:'15%', left:'50%', transform:'translateX(-50%)',
-            width:340, height:340, borderRadius:'50%',
-            background:'radial-gradient(circle, rgba(245,146,27,.12) 0%, transparent 70%)',
-            pointerEvents:'none',
+          {/* hero image — full panel */}
+          <img
+            src="/hero-login.png"
+            alt=""
+            onError={e => { (e.target as HTMLImageElement).style.display='none' }}
+            style={{
+              position:'absolute', inset:0, width:'100%', height:'100%',
+              objectFit:'contain', objectPosition:'center 42%',
+              pointerEvents:'none', zIndex:1,
+            }}
+          />
+
+          {/* top fade for logo readability */}
+          <div style={{
+            position:'absolute', top:0, left:0, right:0, height:'30%',
+            background:'linear-gradient(to bottom, rgba(10,14,26,.95) 0%, transparent 100%)',
+            pointerEvents:'none', zIndex:2,
+          }}/>
+
+          {/* bottom fade for text readability */}
+          <div style={{
+            position:'absolute', bottom:0, left:0, right:0, height:'48%',
+            background:'linear-gradient(to top, rgba(10,14,26,1) 0%, rgba(10,14,26,.8) 50%, transparent 100%)',
+            pointerEvents:'none', zIndex:2,
           }}/>
 
           {/* content */}
-          <div style={{ position:'relative', zIndex:2, textAlign:'center', width:'100%', maxWidth:360 }}>
+          <div style={{ position:'relative', zIndex:3, display:'flex', flexDirection:'column', minHeight:'100vh', padding:'40px 36px' }}>
             {/* logo */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:40 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <img src="/logo-icon.png" alt="Cheetah" style={{ height:36 }} />
               <span style={{ color:'#F1F5F9', fontWeight:800, fontSize:18, letterSpacing:-.3 }}>
                 Cheetah Technology
               </span>
             </div>
 
-            {/* hero visual */}
-            <HeroVisual />
+            <div style={{ flex:1 }}/>
 
-            {/* tagline */}
-            <div style={{ marginTop:32 }}>
-              <h2 style={{ color:'#F1F5F9', fontSize:22, fontWeight:800, letterSpacing:-.5, marginBottom:8 }}>
+            {/* tagline + bullets */}
+            <div>
+              <h2 style={{ color:'#F1F5F9', fontSize:26, fontWeight:800, letterSpacing:-.5, marginBottom:8 }}>
                 Blindagem Digital para <span style={{ color:'#F5921B' }}>PMEs</span>
               </h2>
-              <p style={{ color:'#475569', fontSize:13.5, lineHeight:1.6 }}>
+              <p style={{ color:'#94A3B8', fontSize:13.5, lineHeight:1.6, marginBottom:24 }}>
                 DNS Security · Endpoint Protection · Document Scanner
               </p>
-            </div>
 
-            {/* feature bullets */}
-            <div style={{ marginTop:32, display:'flex', flexDirection:'column', gap:10 }}>
-              {[
-                [Shield,  'Proteção DNS com AdGuard Home'],
-                [Zap,     'Detecção de endpoints com Wazuh'],
-                [Lock,    'Scanner LGPD + DOCAS Bridge'],
-              ].map(([Icon, text], i) => (
-                <div key={i} style={{
-                  display:'flex', alignItems:'center', gap:10,
-                  background:'rgba(255,255,255,.03)', border:'1px solid rgba(255,255,255,.06)',
-                  borderRadius:10, padding:'10px 14px', textAlign:'left',
-                }}>
-                  {/* @ts-ignore */}
-                  <Icon size={15} style={{ color:'#F5921B', flexShrink:0 }} />
-                  <span style={{ color:'#94A3B8', fontSize:13 }}>{text as string}</span>
-                </div>
-              ))}
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {[
+                  [Shield,  'Proteção DNS com AdGuard Home'],
+                  [Zap,     'Detecção de endpoints com Wazuh'],
+                  [Lock,    'Scanner LGPD + DOCAS Bridge'],
+                ].map(([Icon, text], i) => (
+                  <div key={i} style={{
+                    display:'flex', alignItems:'center', gap:10,
+                    background:'rgba(0,0,0,.4)', border:'1px solid rgba(255,255,255,.08)',
+                    borderRadius:10, padding:'10px 14px',
+                  }}>
+                    {/* @ts-ignore */}
+                    <Icon size={15} style={{ color:'#F5921B', flexShrink:0 }} />
+                    <span style={{ color:'#94A3B8', fontSize:13 }}>{text as string}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
