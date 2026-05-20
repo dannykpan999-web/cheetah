@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Shield, Zap, Lock, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, ChevronRight } from 'lucide-react'
 import api from '../api/client'
 
 /* ── Injected CSS animations ─────────────────────────────────────────────── */
@@ -252,32 +252,14 @@ export default function LoginPage() {
 
             <div style={{ flex:1 }}/>
 
-            {/* tagline + bullets */}
+            {/* tagline */}
             <div>
               <h2 style={{ color:'#F1F5F9', fontSize:26, fontWeight:800, letterSpacing:-.5, marginBottom:8 }}>
                 Blindagem Digital para <span style={{ color:'#F5921B' }}>PMEs</span>
               </h2>
-              <p style={{ color:'#94A3B8', fontSize:13.5, lineHeight:1.6, marginBottom:24 }}>
+              <p style={{ color:'#94A3B8', fontSize:13.5, lineHeight:1.6 }}>
                 DNS Security · Endpoint Protection · Document Scanner
               </p>
-
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {[
-                  [Shield,  'Proteção DNS com AdGuard Home'],
-                  [Zap,     'Detecção de endpoints com Wazuh'],
-                  [Lock,    'Scanner LGPD + DOCAS Bridge'],
-                ].map(([Icon, text], i) => (
-                  <div key={i} style={{
-                    display:'flex', alignItems:'center', gap:10,
-                    background:'rgba(0,0,0,.4)', border:'1px solid rgba(255,255,255,.08)',
-                    borderRadius:10, padding:'10px 14px',
-                  }}>
-                    {/* @ts-ignore */}
-                    <Icon size={15} style={{ color:'#F5921B', flexShrink:0 }} />
-                    <span style={{ color:'#94A3B8', fontSize:13 }}>{text as string}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>
