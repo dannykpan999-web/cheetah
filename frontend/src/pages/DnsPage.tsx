@@ -2,8 +2,9 @@ import { useEffect, useState, FormEvent, useMemo } from 'react'
 import {
   Globe, Plus, Trash2, Shield, AlertCircle, CheckCircle,
   Activity, Search, ChevronUp, ChevronDown, ChevronsUpDown,
-  BarChart2, Ban, X, Loader,
+  BarChart2, Ban, X, Loader, Bug, Crosshair, Volume2, Building2, Pencil, Circle,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import api from '../api/client'
 
 const BORDER = '1px solid rgba(255,255,255,0.07)'
@@ -32,24 +33,26 @@ interface DnsStats {
 type SortKey = 'domain' | 'category' | 'created_at'
 type SortDir = 'asc' | 'desc'
 
-const CATEGORIES = [
-  { value: 'malware',   label: 'Malware',       color: '#EF4444', icon: '🦠' },
-  { value: 'phishing',  label: 'Phishing',       color: '#F97316', icon: '🎣' },
-  { value: 'adware',    label: 'Adware',         color: '#F59E0B', icon: '📢' },
-  { value: 'corporate', label: 'Corporativo',    color: '#3B82F6', icon: '🏢' },
-  { value: 'custom',    label: 'Personalizado',  color: '#8B5CF6', icon: '✏️' },
+interface CatDef { value: string; label: string; color: string; Icon: LucideIcon }
+
+const CATEGORIES: CatDef[] = [
+  { value: 'malware',   label: 'Malware',      color: '#EF4444', Icon: Bug       },
+  { value: 'phishing',  label: 'Phishing',     color: '#F97316', Icon: Crosshair },
+  { value: 'adware',    label: 'Adware',       color: '#F59E0B', Icon: Volume2   },
+  { value: 'corporate', label: 'Corporativo',  color: '#3B82F6', Icon: Building2 },
+  { value: 'custom',    label: 'Personalizado',color: '#8B5CF6', Icon: Pencil    },
 ]
 
-function catMeta(value: string) {
-  return CATEGORIES.find(c => c.value === value) ?? { value, label: value, color: MUTED, icon: '•' }
+function catMeta(value: string): CatDef {
+  return CATEGORIES.find(c => c.value === value) ?? { value, label: value, color: MUTED, Icon: Circle }
 }
 
 function CategoryBadge({ value }: { value: string }) {
-  const { label, color, icon } = catMeta(value)
+  const { label, color, Icon } = catMeta(value)
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
       style={{ background: color + '18', color }}>
-      {icon} {label}
+      <Icon size={11} /> {label}
     </span>
   )
 }
@@ -359,11 +362,11 @@ export default function DnsPage() {
                     key={cat.value}
                     type="button"
                     onClick={() => setForm(f => ({ ...f, category: cat.value }))}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={form.category === cat.value
                       ? { background: cat.color + '20', color: cat.color, border: `1px solid ${cat.color}50` }
                       : { background: BG, color: MUTED, border: BORDER }}>
-                    {cat.icon} {cat.label}
+                    <cat.Icon size={11} /> {cat.label}
                   </button>
                 ))}
               </div>

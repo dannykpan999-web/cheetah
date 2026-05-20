@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Monitor, Shield, AlertTriangle, CheckCircle, Trash2,
-  ChevronDown, ChevronRight, Cpu, Copy, RefreshCw, Loader, X,
+  ChevronDown, ChevronRight, Cpu, Copy, RefreshCw, Loader, X, Terminal, Command,
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -82,10 +82,21 @@ function StatusDot({ status }: { status: string }) {
   )
 }
 
-function OsIcon({ os }: { os: string }) {
-  if (os === 'windows') return <span title="Windows">🪟</span>
-  if (os === 'macos')   return <span title="macOS">🍎</span>
-  return <span title="Linux">🐧</span>
+function WindowsSvg({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 15 15" aria-label="Windows">
+      <rect x="0.5" y="0.5" width="6" height="6" rx="0.5" fill="#0078D4"/>
+      <rect x="8.5" y="0.5" width="6" height="6" rx="0.5" fill="#0078D4"/>
+      <rect x="0.5" y="8.5" width="6" height="6" rx="0.5" fill="#0078D4"/>
+      <rect x="8.5" y="8.5" width="6" height="6" rx="0.5" fill="#0078D4"/>
+    </svg>
+  )
+}
+
+function OsIcon({ os, size = 18 }: { os: string; size?: number }) {
+  if (os === 'windows') return <WindowsSvg size={size} />
+  if (os === 'macos')   return <Command size={size} color="#94A3B8" aria-label="macOS" />
+  return <Terminal size={size} color={ACCENT} aria-label="Linux" />
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -444,16 +455,18 @@ export default function EndpointPage() {
             <p className="text-sm font-semibold mb-4" style={{ color: TEXT }}>Selecione o Sistema Operacional</p>
             <div className="grid grid-cols-3 gap-3 mb-5">
               {([
-                { key: 'linux',   label: 'Linux',   icon: '🐧', sub: 'apt · yum · dnf' },
-                { key: 'windows', label: 'Windows', icon: '🪟', sub: 'PowerShell (Admin)' },
-                { key: 'macos',   label: 'macOS',   icon: '🍎', sub: 'Terminal' },
-              ] as const).map(({ key, label, icon, sub }) => (
+                { key: 'linux',   label: 'Linux',   sub: 'apt · yum · dnf' },
+                { key: 'windows', label: 'Windows', sub: 'PowerShell (Admin)' },
+                { key: 'macos',   label: 'macOS',   sub: 'Terminal' },
+              ] as const).map(({ key, label, sub }) => (
                 <button key={key} onClick={() => { setOs(key); setOnboarding(null) }}
                   className="rounded-xl p-4 text-center transition-all"
                   style={os === key
                     ? { background: 'rgba(245,146,27,0.1)', border: `1px solid ${ACCENT}` }
                     : { background: BG, border: BORDER }}>
-                  <div className="text-2xl mb-2">{icon}</div>
+                  <div className="flex justify-center mb-2.5">
+                    <OsIcon os={key} size={28} />
+                  </div>
                   <p className="text-sm font-semibold" style={{ color: TEXT }}>{label}</p>
                   <p className="text-xs mt-0.5" style={{ color: MUTED }}>{sub}</p>
                 </button>
