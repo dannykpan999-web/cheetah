@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import api from '../api/client'
+import { useToast } from '../context/ToastContext'
 
 const BORDER = '1px solid rgba(255,255,255,0.07)'
 const CARD   = '#141929'
@@ -93,6 +94,7 @@ export default function DnsPage() {
 
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [deleting, setDeleting]   = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     load()
@@ -124,8 +126,10 @@ export default function DnsPage() {
       await load()
       setForm(f => ({ ...f, domain: '' }))
       setShowForm(false)
+      const label = form.policy_type === 'blacklist' ? 'bloqueado' : 'liberado'
+      toast('success', 'Política Adicionada', `${form.domain} ${label} com sucesso.`)
     } catch {
-      /* leave form open so user can retry */
+      toast('error', 'Falha ao Adicionar', 'Não foi possível salvar a política DNS.')
     } finally {
       setAdding(false)
     }
@@ -138,12 +142,14 @@ export default function DnsPage() {
 
   async function remove(id: string) {
     setDeleting(true)
+    const target = policies.find(p => p.id === id)
     try {
       await api.delete(`/dns/policies/${id}`)
       setPolicies(p => p.filter(x => x.id !== id))
       setConfirmId(null)
+      toast('info', 'Política Removida', `${target?.domain ?? 'Domínio'} removido das políticas DNS.`)
     } catch {
-      /* keep confirm open on failure so user sees nothing happened */
+      toast('error', 'Falha ao Remover', 'Não foi possível excluir a política.')
     } finally {
       setDeleting(false)
     }

@@ -9,6 +9,8 @@ import ScannerPage from './pages/ScannerPage'
 import EndpointPage from './pages/EndpointPage'
 import ProfilePage from './pages/ProfilePage'
 import SupportPage from './pages/SupportPage'
+import { ToastProvider } from './context/ToastContext'
+import ToastContainer from './components/ToastContainer'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   return localStorage.getItem('access_token') ? <>{children}</> : <Navigate to="/login" replace />
@@ -16,6 +18,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ToastProvider>
+      <ToastContainer />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -32,5 +36,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   )
 }

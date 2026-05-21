@@ -6,6 +6,7 @@ import {
   ShieldAlert, ShieldCheck, AlertCircle, Download,
 } from 'lucide-react'
 import api from '../api/client'
+import { useToast } from '../context/ToastContext'
 
 const BORDER  = '1px solid rgba(255,255,255,0.07)'
 const CARD    = '#141929'
@@ -161,6 +162,8 @@ export default function EndpointPage() {
   const [copied, setCopied]             = useState(false)
   const [installerLoading, setInstallerLoading] = useState(false)
 
+  const { toast } = useToast()
+
   const loadStats  = useCallback(async () => { try { const r = await api.get<Stats>('/endpoints/stats'); setStats(r.data) } catch {} }, [])
   const loadAgents = useCallback(async () => { try { const r = await api.get<Agent[]>('/endpoints/agents'); setAgents(r.data) } catch {} }, [])
   const loadAlerts = useCallback(async () => { try { const r = await api.get<Alert[]>('/endpoints/alerts'); setAlerts(r.data) } catch {} }, [])
@@ -181,8 +184,13 @@ export default function EndpointPage() {
   const deleteAgent = async (id: string, name: string) => {
     if (!confirm(`Remover "${name}"?`)) return
     setDeleting(id)
-    try { await api.delete(`/endpoints/agents/${id}`); setAgents(p => p.filter(a => a.id !== id)); loadStats() }
-    catch {} finally { setDeleting(null) }
+    try {
+      await api.delete(`/endpoints/agents/${id}`)
+      setAgents(p => p.filter(a => a.id !== id)); loadStats()
+      toast('info', 'Dispositivo Removido', `"${name}" foi removido da plataforma.`)
+    } catch {
+      toast('error', 'Erro ao Remover', 'Não foi possível remover o dispositivo.')
+    } finally { setDeleting(null) }
   }
 
   const resolveAlert = async (alertId: string) => {
@@ -191,7 +199,10 @@ export default function EndpointPage() {
       await api.patch(`/endpoints/alerts/${alertId}/resolve`)
       setAlerts(p => p.map(a => a.id === alertId ? { ...a, resolved: true } : a))
       loadStats()
-    } catch {} finally { setResolving(null) }
+      toast('success', 'Alerta Resolvido', 'O alerta foi marcado como resolvido.')
+    } catch {
+      toast('error', 'Erro', 'Não foi possível resolver o alerta.')
+    } finally { setResolving(null) }
   }
 
   const generateOnboarding = async () => {
@@ -199,7 +210,10 @@ export default function EndpointPage() {
     try {
       const r = await api.get<Onboarding>(`/endpoints/onboarding/${os}`)
       setOnboarding(r.data); loadAgents(); loadStats()
-    } catch {} finally { setOnboardLoading(false) }
+      toast('success', 'Agente Registrado', `Comando de instalação gerado para ${os}.`)
+    } catch {
+      toast('error', 'Falha ao Gerar', 'Não foi possível gerar o comando de instalação.')
+    } finally { setOnboardLoading(false) }
   }
 
   const copyCmd = () => {
@@ -218,7 +232,10 @@ export default function EndpointPage() {
       a.href = url; a.download = `cheetah_installer_${os}.${ext}`; a.click()
       URL.revokeObjectURL(url)
       await Promise.all([loadAgents(), loadStats()])
-    } catch {} finally { setInstallerLoading(false) }
+      toast('success', 'Instalador Baixado', `cheetah_installer_${os}.${ext} — execute como administrador.`)
+    } catch {
+      toast('error', 'Falha no Download', 'Não foi possível gerar o instalador.')
+    } finally { setInstallerLoading(false) }
   }
 
   // Security posture score computed from agents + stats

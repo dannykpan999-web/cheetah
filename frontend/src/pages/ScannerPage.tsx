@@ -6,6 +6,7 @@ import {
   TrendingUp, Clock, Terminal, CalendarClock, ToggleLeft, ToggleRight, Save,
 } from 'lucide-react'
 import api from '../api/client'
+import { useToast } from '../context/ToastContext'
 
 const BORDER  = '1px solid rgba(255,255,255,0.07)'
 const CARD    = '#141929'
@@ -267,8 +268,9 @@ export default function ScannerPage() {
   const [scanFileName, setScanFileName] = useState('')
   const [schedule,     setSchedule]     = useState<{ enabled:boolean; frequency:string; day_of_week:number; hour:number; next_run:string|null } | null>(null)
   const [schedSaving,  setSchedSaving]  = useState(false)
-  const fileRef   = useRef<HTMLInputElement>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { toast }  = useToast()
 
   useEffect(() => {
     if (scanning) {
@@ -304,13 +306,17 @@ export default function ScannerPage() {
 
   useEffect(() => { load(); loadSchedule() }, [load, loadSchedule])
 
-  async function saveSchedule(patch: Partial<typeof schedule>) {
+  async function saveSchedule(patch: Partial<NonNullable<typeof schedule>>) {
     if (!schedule) return
     setSchedSaving(true)
     try {
       const r = await api.put('/scanner/schedule', { ...schedule, ...patch })
       setSchedule(r.data)
-    } catch {} finally { setSchedSaving(false) }
+      const enabled = patch.enabled ?? schedule.enabled
+      toast('success', 'Agendamento Salvo', enabled ? 'Scan semanal ativado com sucesso.' : 'Scan agendado desativado.')
+    } catch {
+      toast('error', 'Falha ao Salvar', 'Não foi possível atualizar o agendamento.')
+    } finally { setSchedSaving(false) }
   }
 
   async function scanFile(file: File) {
@@ -323,7 +329,16 @@ export default function ScannerPage() {
       const { data } = await api.post<ScanResult>('/scanner/upload', fd,
         { headers: { 'Content-Type': 'multipart/form-data' } })
       setCurrent(data); await load()
-    } catch { setCurrent(null) } finally { setScanning(false) }
+      if (data.scan_status === 'threat_found')
+        toast('error', 'Ameaça Detectada', `${data.threats.length} ameaça(s) encontrada(s) em ${file.name}`)
+      else if (data.pii_detected)
+        toast('warning', 'Alerta LGPD', `Dados pessoais detectados em ${file.name}`)
+      else
+        toast('success', 'Arquivo Seguro', `${file.name} analisado — nenhuma ameaça encontrada`)
+    } catch {
+      setCurrent(null)
+      toast('error', 'Falha no Upload', 'Não foi possível enviar o arquivo. Tente novamente.')
+    } finally { setScanning(false) }
   }
 
   function onDrop(e: React.DragEvent) {
@@ -336,7 +351,10 @@ export default function ScannerPage() {
     try {
       await api.delete(`/scanner/results/${id}`)
       if (current?.id === id) setCurrent(null); setConfirmId(null); await load()
-    } catch {} finally { setDeleting(false) }
+      toast('info', 'Registro Removido', 'O resultado foi excluído do histórico.')
+    } catch {
+      toast('error', 'Erro ao Remover', 'Não foi possível excluir o registro.')
+    } finally { setDeleting(false) }
   }
 
   async function downloadCSV() {
@@ -345,7 +363,10 @@ export default function ScannerPage() {
       const url = URL.createObjectURL(new Blob([r.data as BlobPart], { type:'text/csv' }))
       const a = document.createElement('a'); a.href=url; a.download='cheetah_scans.csv'; a.click()
       URL.revokeObjectURL(url)
-    } catch {}
+      toast('success', 'Exportação Concluída', 'Histórico exportado como cheetah_scans.csv')
+    } catch {
+      toast('error', 'Falha na Exportação', 'Não foi possível gerar o arquivo CSV.')
+    }
   }
 
   async function downloadPDF(id: string, fileName: string) {
@@ -361,8 +382,12 @@ export default function ScannerPage() {
 
   async function releaseQuarantine(id: string) {
     setReleasingId(id)
-    try { await api.post(`/scanner/quarantine/${id}/release`); await load() }
-    catch {} finally { setReleasingId(null) }
+    try {
+      await api.post(`/scanner/quarantine/${id}/release`); await load()
+      toast('success', 'Arquivo Liberado', 'O arquivo foi removido da quarentena.')
+    } catch {
+      toast('error', 'Erro ao Liberar', 'Não foi possível liberar o arquivo.')
+    } finally { setReleasingId(null) }
   }
 
   const filteredResults = useMemo(() => {
