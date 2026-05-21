@@ -17,3 +17,4 @@ yara-python==4.5.1
 resend==2.3.0
 anthropic==0.40.0
 fpdf2==2.7.9
+apscheduler==3.10.4

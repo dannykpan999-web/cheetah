@@ -17,10 +17,11 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from ..dependencies import get_current_user, any_role
-from ..models import ScanResult, User, Tenant, AuditLog
+from ..models import ScanResult, User, Tenant, AuditLog, ScanSchedule
 from ..database import get_db
 from ..config import settings
 from .. import email as email_svc
+from ..schemas import ScanScheduleOut, ScanScheduleUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scanner", tags=["scanner"])
@@ -649,3 +650,53 @@ def delete_result(
     db.delete(row)
     db.commit()
     return {"message": "Resultado removido"}
+
+
+# ─── Scan Schedule endpoints ──────────────────────────────────────────────────
+
+def _compute_next_run(schedule: ScanSchedule) -> dt:
+    from datetime import timezone as _tz
+    now = dt.now(_tz.utc).replace(tzinfo=None)
+    base = now.replace(hour=schedule.hour, minute=0, second=0, microsecond=0)
+    if schedule.frequency == "daily":
+        if base <= now:
+            base = base + __import__("datetime").timedelta(days=1)
+    elif schedule.frequency == "weekly":
+        days_ahead = (schedule.day_of_week - now.weekday()) % 7
+        if days_ahead == 0 and base <= now:
+            days_ahead = 7
+        base = base + __import__("datetime").timedelta(days=days_ahead)
+    elif schedule.frequency == "monthly":
+        if base <= now:
+            month = base.month % 12 + 1
+            year  = base.year + (1 if base.month == 12 else 0)
+            base  = base.replace(year=year, month=month, day=1)
+    return base
+
+
+@router.get("/schedule", response_model=ScanScheduleOut)
+def get_schedule(db: Session = Depends(get_db), current_user: User = Depends(any_role)):
+    sched = db.query(ScanSchedule).filter(ScanSchedule.tenant_id == current_user.tenant_id).first()
+    if not sched:
+        sched = ScanSchedule(tenant_id=current_user.tenant_id)
+        db.add(sched); db.commit(); db.refresh(sched)
+    return sched
+
+
+@router.put("/schedule", response_model=ScanScheduleOut)
+def update_schedule(
+    body: ScanScheduleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(any_role),
+):
+    sched = db.query(ScanSchedule).filter(ScanSchedule.tenant_id == current_user.tenant_id).first()
+    if not sched:
+        sched = ScanSchedule(tenant_id=current_user.tenant_id)
+        db.add(sched)
+    if body.enabled     is not None: sched.enabled     = body.enabled
+    if body.frequency   is not None: sched.frequency   = body.frequency
+    if body.day_of_week is not None: sched.day_of_week = body.day_of_week
+    if body.hour        is not None: sched.hour        = body.hour
+    sched.next_run = _compute_next_run(sched) if sched.enabled else None
+    db.commit(); db.refresh(sched)
+    return sched

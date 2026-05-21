@@ -6,6 +6,7 @@ from ..schemas import TenantCreate, TenantOut, UserCreate, UserOut
 from ..auth import hash_password
 from ..dependencies import get_current_user
 from typing import List
+from .dns import seed_default_dns_policies
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -17,6 +18,7 @@ def create_tenant(body: TenantCreate, db: Session = Depends(get_db)):
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
+    seed_default_dns_policies(db, tenant.id)
     return tenant
 
 @router.get("/{slug}", response_model=TenantOut)

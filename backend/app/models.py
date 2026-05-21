@@ -116,3 +116,15 @@ class EndpointVulnerability(Base):
     description = Column(Text)
     detected_at = Column(DateTime, default=datetime.utcnow)
     endpoint    = relationship("Endpoint", back_populates="vulnerabilities")
+
+class ScanSchedule(Base):
+    __tablename__ = "scan_schedules"
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id   = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, unique=True)
+    enabled     = Column(Boolean, default=False)
+    frequency   = Column(String(20), default="weekly")   # daily | weekly | monthly
+    day_of_week = Column(Integer, default=1)              # 0=Mon … 6=Sun (used for weekly)
+    hour        = Column(Integer, default=9)              # UTC hour to run
+    last_run    = Column(DateTime, nullable=True)
+    next_run    = Column(DateTime, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)

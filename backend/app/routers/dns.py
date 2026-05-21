@@ -10,6 +10,38 @@ from ..config import settings
 
 router = APIRouter(prefix="/dns", tags=["dns"])
 
+# Default policies seeded for every new tenant
+_DEFAULT_POLICIES = [
+    # Malware / ransomware C&C
+    ("malware-c2.ru",           "blacklist", "malware"),
+    ("ransomware-payload.cc",   "blacklist", "malware"),
+    ("trojan-loader.xyz",       "blacklist", "malware"),
+    ("botnet-update.pw",        "blacklist", "malware"),
+    # Phishing
+    ("secure-bank-login.tk",    "blacklist", "phishing"),
+    ("paypal-verify.xyz",       "blacklist", "phishing"),
+    ("invoice-update.cc",       "blacklist", "phishing"),
+    ("conta-acesso-seguro.com", "blacklist", "phishing"),
+    # Ads / trackers
+    ("ad-tracker.net",          "blacklist", "ads"),
+    ("analytics-collect.com",   "blacklist", "ads"),
+    ("click-redirect.biz",      "blacklist", "ads"),
+    ("pixel-spy.io",            "blacklist", "ads"),
+]
+
+def seed_default_dns_policies(db, tenant_id) -> int:
+    """Insert default DNS policies for a tenant. Skips already-existing domains."""
+    added = 0
+    existing = {p.domain for p in db.query(DnsPolicy).filter(DnsPolicy.tenant_id == tenant_id).all()}
+    for domain, ptype, cat in _DEFAULT_POLICIES:
+        if domain not in existing:
+            db.add(DnsPolicy(tenant_id=tenant_id, domain=domain, policy_type=ptype, category=cat))
+            added += 1
+    if added:
+        db.commit()
+        _sync_adguard(db, tenant_id)
+    return added
+
 def adguard_request(method: str, path: str, **kwargs):
     try:
         with httpx.Client(timeout=5.0) as client:
@@ -66,6 +98,11 @@ def delete_policy(policy_id: str, db: Session = Depends(get_db), user: User = De
     db.commit()
     _sync_adguard(db, user.tenant_id)
     return {"ok": True}
+
+@router.post("/policies/reset-defaults")
+def reset_default_policies(db: Session = Depends(get_db), user: User = Depends(owner_or_admin)):
+    added = seed_default_dns_policies(db, user.tenant_id)
+    return {"ok": True, "added": added}
 
 @router.get("/adguard/status")
 def adguard_status(user: User = Depends(get_current_user)):

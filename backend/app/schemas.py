@@ -89,3 +89,21 @@ class HealthOut(BaseModel):
     status: str
     version: str
     tenant_count: int
+
+class ScanScheduleOut(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    enabled: bool
+    frequency: str
+    day_of_week: int
+    hour: int
+    last_run: Optional[datetime]
+    next_run: Optional[datetime]
+    class Config:
+        from_attributes = True
+
+class ScanScheduleUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    frequency: Optional[str] = None   # daily | weekly | monthly
+    day_of_week: Optional[int] = None
+    hour: Optional[int] = None

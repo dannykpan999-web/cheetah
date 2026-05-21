@@ -3,7 +3,7 @@ import {
   FileSearch, Upload, Shield, AlertTriangle, CheckCircle, Trash2, X,
   FileText, Loader, Lock, ShieldCheck, ChevronDown, ChevronUp,
   AlertCircle, Archive, Download, ShieldOff, Filter, Search,
-  TrendingUp, Clock, Terminal,
+  TrendingUp, Clock, Terminal, CalendarClock, ToggleLeft, ToggleRight, Save,
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -265,6 +265,8 @@ export default function ScannerPage() {
   const [scanLogs,     setScanLogs]     = useState<string[]>([])
   const [scanPct,      setScanPct]      = useState(0)
   const [scanFileName, setScanFileName] = useState('')
+  const [schedule,     setSchedule]     = useState<{ enabled:boolean; frequency:string; day_of_week:number; hour:number; next_run:string|null } | null>(null)
+  const [schedSaving,  setSchedSaving]  = useState(false)
   const fileRef   = useRef<HTMLInputElement>(null)
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -296,7 +298,20 @@ export default function ScannerPage() {
     } catch {}
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const loadSchedule = useCallback(async () => {
+    try { const r = await api.get('/scanner/schedule'); setSchedule(r.data) } catch {}
+  }, [])
+
+  useEffect(() => { load(); loadSchedule() }, [load, loadSchedule])
+
+  async function saveSchedule(patch: Partial<typeof schedule>) {
+    if (!schedule) return
+    setSchedSaving(true)
+    try {
+      const r = await api.put('/scanner/schedule', { ...schedule, ...patch })
+      setSchedule(r.data)
+    } catch {} finally { setSchedSaving(false) }
+  }
 
   async function scanFile(file: File) {
     setScanning(true); setScanFileName(file.name)
@@ -794,6 +809,81 @@ export default function ScannerPage() {
           </div>
         )}
       </div>
+
+      {/* ── Scan Schedule ── */}
+      {schedule !== null && (
+        <div className="rounded-2xl p-5" style={{ background: CARD, border: BORDER }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <CalendarClock size={16} style={{ color: TEAL }} />
+              <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Scan Agendado</h2>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                style={schedule.enabled
+                  ? { background: GREEN+'1A', color: GREEN, border: `1px solid ${GREEN}33` }
+                  : { background: 'rgba(255,255,255,0.06)', color: MUTED }}>
+                {schedule.enabled ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <button onClick={() => saveSchedule({ enabled: !schedule.enabled })}
+              style={{ color: schedule.enabled ? TEAL : MUTED }}>
+              {schedule.enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: SUB }}>Frequência</label>
+              <select value={schedule.frequency}
+                onChange={e => setSchedule({ ...schedule, frequency: e.target.value })}
+                className="w-full px-3 py-1.5 rounded-lg text-xs"
+                style={{ background: BG, color: TEXT, border: BORDER, outline: 'none' }}>
+                <option value="daily">Diário</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensal</option>
+              </select>
+            </div>
+            {schedule.frequency === 'weekly' && (
+              <div>
+                <label className="text-xs font-semibold mb-1 block" style={{ color: SUB }}>Dia da Semana</label>
+                <select value={schedule.day_of_week}
+                  onChange={e => setSchedule({ ...schedule, day_of_week: +e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-lg text-xs"
+                  style={{ background: BG, color: TEXT, border: BORDER, outline: 'none' }}>
+                  {['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'].map((d,i) => (
+                    <option key={i} value={i}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: SUB }}>Hora (UTC)</label>
+              <select value={schedule.hour}
+                onChange={e => setSchedule({ ...schedule, hour: +e.target.value })}
+                className="w-full px-3 py-1.5 rounded-lg text-xs"
+                style={{ background: BG, color: TEXT, border: BORDER, outline: 'none' }}>
+                {Array.from({ length: 24 }, (_, i) => i).map(h => (
+                  <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: BORDER }}>
+            {schedule.next_run ? (
+              <span className="text-xs flex items-center gap-1.5" style={{ color: MUTED }}>
+                <Clock size={11} style={{ color: TEAL }} />
+                Próximo scan: <span style={{ color: SUB }}>{new Date(schedule.next_run).toLocaleString('pt-BR')}</span>
+              </span>
+            ) : <span />}
+            <button
+              onClick={() => saveSchedule(schedule)}
+              disabled={schedSaving}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: TEAL+'22', color: TEAL, border: `1px solid ${TEAL}44` }}>
+              {schedSaving ? <Loader size={11} className="animate-spin" /> : <Save size={11} />}
+              Salvar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

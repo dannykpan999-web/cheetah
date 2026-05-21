@@ -3,7 +3,7 @@ import {
   Monitor, Shield, AlertTriangle, CheckCircle, Trash2,
   ChevronDown, ChevronRight, Cpu, Copy, RefreshCw, Loader, X,
   Terminal, Command, Search, Clock, Activity, Zap, TrendingUp,
-  ShieldAlert, ShieldCheck, AlertCircle,
+  ShieldAlert, ShieldCheck, AlertCircle, Download,
 } from 'lucide-react'
 import api from '../api/client'
 
@@ -19,6 +19,7 @@ const RED     = '#EF4444'
 const YELLOW  = '#F59E0B'
 const BLUE    = '#3B82F6'
 const PURPLE  = '#7C3AED'
+const TEAL    = '#14B8A6'
 
 interface Stats {
   total: number; online: number; offline: number
@@ -158,6 +159,7 @@ export default function EndpointPage() {
   const [onboarding, setOnboarding]     = useState<Onboarding | null>(null)
   const [onboardLoading, setOnboardLoading] = useState(false)
   const [copied, setCopied]             = useState(false)
+  const [installerLoading, setInstallerLoading] = useState(false)
 
   const loadStats  = useCallback(async () => { try { const r = await api.get<Stats>('/endpoints/stats'); setStats(r.data) } catch {} }, [])
   const loadAgents = useCallback(async () => { try { const r = await api.get<Agent[]>('/endpoints/agents'); setAgents(r.data) } catch {} }, [])
@@ -204,6 +206,19 @@ export default function EndpointPage() {
     if (!onboarding) return
     navigator.clipboard.writeText(onboarding.command)
     setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
+
+  const downloadInstaller = async () => {
+    setInstallerLoading(true)
+    try {
+      const ext = os === 'windows' ? 'bat' : 'sh'
+      const r = await api.get(`/endpoints/installer/${os}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([r.data as BlobPart]))
+      const a = document.createElement('a')
+      a.href = url; a.download = `cheetah_installer_${os}.${ext}`; a.click()
+      URL.revokeObjectURL(url)
+      await Promise.all([loadAgents(), loadStats()])
+    } catch {} finally { setInstallerLoading(false) }
   }
 
   // Security posture score computed from agents + stats
@@ -773,6 +788,20 @@ export default function EndpointPage() {
                   {onboardLoading
                     ? <><Loader size={14} className="animate-spin" /> Gerando...</>
                     : 'Gerar Comando de Instalação'}
+                </button>
+
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                  <span className="text-xs" style={{ color: MUTED }}>ou</span>
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                </div>
+
+                <button onClick={downloadInstaller} disabled={installerLoading}
+                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: `rgba(20,184,166,0.12)`, color: TEAL, border: `1px solid rgba(20,184,166,0.25)`, opacity: installerLoading ? 0.7 : 1 }}>
+                  {installerLoading
+                    ? <><Loader size={14} className="animate-spin" /> Preparando instalador...</>
+                    : <><Download size={14} /> Baixar Instalador {os === 'windows' ? '(.bat)' : '(.sh)'}</>}
                 </button>
               </div>
 

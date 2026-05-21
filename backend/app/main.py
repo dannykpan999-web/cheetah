@@ -1,4 +1,5 @@
 import secrets
+import logging
 from datetime import datetime, timedelta
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,10 +8,12 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from .database import engine, Base, get_db, SessionLocal
 from .models import (Tenant, User, DnsPolicy, ScanResult,
-                     Endpoint, EndpointAlert, EndpointVulnerability)
+                     Endpoint, EndpointAlert, EndpointVulnerability, ScanSchedule)
 from .auth import hash_password
 from .routers import auth, tenants, dns, scanner, audit, endpoints, chat
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
@@ -228,6 +231,81 @@ def _seed_endpoints(db: Session, t1_id=None, t2_id=None):
                                   description="Escalação de privilégio no kernel do Windows",
                                   detected_at=now - timedelta(days=8)))
     db.commit()
+
+
+@app.on_event("startup")
+def start_scheduler():
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(_run_scan_schedules, "interval", hours=1, id="scan_schedules")
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logger.info("APScheduler started — scan schedule checker running every hour")
+    except ImportError:
+        logger.warning("apscheduler not installed — scheduled scans disabled")
+
+
+def _run_scan_schedules():
+    """Called every hour: send weekly summary email to tenants whose schedule is due."""
+    db: Session = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        due = db.query(ScanSchedule).filter(
+            ScanSchedule.enabled == True,
+            ScanSchedule.next_run <= now,
+        ).all()
+        for sched in due:
+            _send_weekly_summary(db, sched, now)
+            # compute next run
+            from .routers.scanner import _compute_next_run
+            sched.last_run = now
+            sched.next_run = _compute_next_run(sched)
+            db.commit()
+    except Exception as e:
+        logger.error("scan schedule job error: %s", e)
+    finally:
+        db.close()
+
+
+def _send_weekly_summary(db: Session, sched: ScanSchedule, now: datetime):
+    """Send a weekly security summary email to the tenant owner."""
+    try:
+        from . import email as email_svc
+        tenant = db.query(Tenant).filter(Tenant.id == sched.tenant_id).first()
+        owner  = db.query(User).filter(
+            User.tenant_id == sched.tenant_id, User.role == "owner"
+        ).first()
+        if not tenant or not owner:
+            return
+
+        one_week_ago = now - timedelta(days=7)
+        base   = db.query(ScanResult).filter(ScanResult.tenant_id == sched.tenant_id)
+        weekly = base.filter(ScanResult.scanned_at >= one_week_ago)
+
+        total      = weekly.count()
+        threats    = weekly.filter(ScanResult.scan_status == "threat_found").count()
+        clean      = weekly.filter(ScanResult.scan_status == "clean").count()
+        quarantine = weekly.filter(ScanResult.quarantined == True).count()
+        pii        = weekly.filter(ScanResult.pii_detected == True).count()
+
+        # reuse threat alert email as weekly digest (repurposed subject/body)
+        if threats > 0:
+            email_svc.send_threat_alert(
+                to_email    = owner.email,
+                file_name   = f"Resumo semanal — {total} arquivo(s) analisado(s)",
+                threats     = [
+                    f"{threats} arquivo(s) com ameaças detectadas",
+                    f"{quarantine} arquivo(s) em quarentena",
+                    f"{pii} alerta(s) LGPD / dados pessoais",
+                    f"{clean} arquivo(s) limpos",
+                ],
+                risk_level  = "high" if threats > 0 else "low",
+                tenant_name = tenant.name,
+            )
+        logger.info("Weekly summary sent to %s (%s)", owner.email, tenant.slug)
+    except Exception as e:
+        logger.warning("weekly summary email failed: %s", e)
 
 
 @app.get("/api/v1/health")

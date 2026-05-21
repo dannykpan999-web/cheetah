@@ -385,3 +385,117 @@ def get_onboarding(
             f"3. Em 2 minutos o dispositivo aparecerá na lista com status Online.",
         ]
     }
+
+
+@router.get("/installer/{os_type}")
+def download_installer(
+    os_type: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(owner_or_admin),
+):
+    """
+    Generate and return a one-click installer script for the given OS.
+    Windows → .bat  |  macOS/Linux → .sh
+    The script embeds the tenant token and server URL so the user just double-clicks.
+    """
+    from fastapi.responses import Response as _Resp
+
+    token    = secrets.token_hex(32)
+    base_url = "https://cheetah.technology"
+    wazuh_ip = "2.24.101.239"
+
+    # Register endpoint in DB
+    ep = Endpoint(
+        tenant_id   = user.tenant_id,
+        hostname    = f"pending-{os_type}-{token[:6]}",
+        os_type     = os_type,
+        status      = "never_connected",
+        agent_token = token,
+    )
+    db.add(ep); db.commit(); db.refresh(ep)
+
+    if os_type == "windows":
+        script = f"""@echo off
+:: Cheetah Security — Instalador de Agente (Windows)
+:: Empresa: {user.tenant_id}  Token: {token}
+title Cheetah Security — Instalando agente...
+echo.
+echo  ==========================================
+echo   Cheetah Security — Instalador de Agente
+echo  ==========================================
+echo.
+echo  Baixando instalador Wazuh...
+powershell -Command "Invoke-WebRequest -Uri 'https://packages.wazuh.com/4.x/windows/wazuh-agent-4.7.3-1.msi' -OutFile '%TEMP%\\wazuh-agent.msi'"
+echo  Instalando agente (isso pode levar 1-2 minutos)...
+msiexec /i "%TEMP%\\wazuh-agent.msi" /q WAZUH_MANAGER="{wazuh_ip}" WAZUH_REGISTRATION_SERVER="{wazuh_ip}" WAZUH_AGENT_NAME="%COMPUTERNAME%" WAZUH_REGISTRATION_PASSWORD="{token}"
+echo  Iniciando servico...
+net start WazuhSvc
+echo.
+echo  Instalacao concluida! O dispositivo aparecera na plataforma em 2 minutos.
+echo  Acesse: {base_url}/app/endpoints
+echo.
+pause
+"""
+        filename    = "cheetah-instalar-agente.bat"
+        media_type  = "application/octet-stream"
+
+    elif os_type == "macos":
+        script = f"""#!/bin/bash
+# Cheetah Security — Instalador de Agente (macOS)
+# Empresa: {user.tenant_id}  Token: {token}
+set -e
+echo ""
+echo "  Cheetah Security — Instalador de Agente"
+echo "  ========================================="
+echo ""
+echo "  Baixando instalador Wazuh para macOS..."
+curl -so /tmp/wazuh-agent.pkg "https://packages.wazuh.com/4.x/macos/wazuh-agent-4.7.3-1.intel64.pkg"
+echo "  Instalando agente..."
+sudo installer -pkg /tmp/wazuh-agent.pkg -target /
+sudo bash -c "echo 'WAZUH_MANAGER=\"{wazuh_ip}\"' >> /Library/Ossec/etc/ossec.conf"
+sudo /Library/Ossec/bin/wazuh-control start
+echo ""
+echo "  Instalacao concluida! O dispositivo aparecera em {base_url}/app/endpoints"
+"""
+        filename    = "cheetah-instalar-agente.sh"
+        media_type  = "application/octet-stream"
+
+    else:  # linux
+        script = f"""#!/bin/bash
+# Cheetah Security — Instalador de Agente (Linux)
+# Empresa: {user.tenant_id}  Token: {token}
+set -e
+echo ""
+echo "  Cheetah Security — Instalador de Agente"
+echo "  ========================================="
+echo ""
+# Detect distro
+if command -v apt-get &>/dev/null; then
+    curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import && chmod 644 /usr/share/keyrings/wazuh.gpg
+    echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee /etc/apt/sources.list.d/wazuh.list
+    apt-get update -q && WAZUH_MANAGER="{wazuh_ip}" apt-get install -y wazuh-agent
+else
+    rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    cat > /etc/yum.repos.d/wazuh.repo << 'EOF'
+[wazuh]
+gpgcheck=1
+gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
+enabled=1
+name=EL-$releasever - Wazuh
+baseurl=https://packages.wazuh.com/4.x/yum/
+protect=1
+EOF
+    WAZUH_MANAGER="{wazuh_ip}" yum install -y wazuh-agent
+fi
+systemctl daemon-reload && systemctl enable wazuh-agent && systemctl start wazuh-agent
+echo ""
+echo "  Instalacao concluida! O dispositivo aparecera em {base_url}/app/endpoints"
+"""
+        filename    = "cheetah-instalar-agente.sh"
+        media_type  = "application/octet-stream"
+
+    return _Resp(
+        content=script.encode("utf-8"),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
