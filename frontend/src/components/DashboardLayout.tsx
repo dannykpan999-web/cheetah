@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu, X } from 'lucide-react'
+import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu, X, ShieldCheck } from 'lucide-react'
 import { logout } from '../api/client'
 import NotificationPanel from './NotificationPanel'
 import UserDropdown from './UserDropdown'
@@ -22,9 +22,10 @@ const NAV = [
   { to: '/app/dns',      icon: 'Globe',           label: 'DNS',        end: false },
   { to: '/app/scanner',  icon: 'FileSearch',      label: 'Scanner',    end: false },
   { to: '/app/endpoint', icon: 'Monitor',         label: 'Endpoint',   end: false },
+  { to: '/app/lgpd',     icon: 'ShieldCheck',     label: 'LGPD',       end: false },
 ]
 
-const ICON_MAP: Record<string, any> = { LayoutDashboard, Globe, FileSearch, Monitor }
+const ICON_MAP: Record<string, any> = { LayoutDashboard, Globe, FileSearch, Monitor, ShieldCheck }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   return (

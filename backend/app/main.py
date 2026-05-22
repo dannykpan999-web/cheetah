@@ -10,7 +10,7 @@ from .database import engine, Base, get_db, SessionLocal
 from .models import (Tenant, User, DnsPolicy, ScanResult,
                      Endpoint, EndpointAlert, EndpointVulnerability, ScanSchedule)
 from .auth import hash_password
-from .routers import auth, tenants, dns, scanner, audit, endpoints, chat
+from .routers import auth, tenants, dns, scanner, audit, endpoints, chat, lgpd
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.include_router(scanner.router,   prefix="/api/v1")
 app.include_router(audit.router,     prefix="/api/v1")
 app.include_router(endpoints.router, prefix="/api/v1")
 app.include_router(chat.router,      prefix="/api/v1")
+app.include_router(lgpd.router,      prefix="/api/v1")
 
 @app.on_event("startup")
 def seed_demo_data():

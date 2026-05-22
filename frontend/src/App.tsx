@@ -9,6 +9,7 @@ import ScannerPage from './pages/ScannerPage'
 import EndpointPage from './pages/EndpointPage'
 import ProfilePage from './pages/ProfilePage'
 import SupportPage from './pages/SupportPage'
+import LgpdPage from './pages/LgpdPage'
 import { ToastProvider } from './context/ToastContext'
 import ToastContainer from './components/ToastContainer'
 
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="endpoint" element={<EndpointPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="support" element={<SupportPage />} />
+          <Route path="lgpd"    element={<LgpdPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
