@@ -10,6 +10,7 @@ import EndpointPage from './pages/EndpointPage'
 import ProfilePage from './pages/ProfilePage'
 import SupportPage from './pages/SupportPage'
 import LgpdPage from './pages/LgpdPage'
+import BillingPage from './pages/BillingPage'
 import { ToastProvider } from './context/ToastContext'
 import ToastContainer from './components/ToastContainer'
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="lgpd"    element={<LgpdPage />} />
+          <Route path="billing" element={<BillingPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
