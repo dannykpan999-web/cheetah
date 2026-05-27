@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 import httpx
 from ..database import get_db
-from ..models import User, DnsPolicy
-from ..schemas import DnsPolicyCreate, DnsPolicyOut, DnsStats
+from ..models import User, DnsPolicy, DeviceDnsPolicy, Endpoint
+from ..schemas import DnsPolicyCreate, DnsPolicyOut, DnsStats, DeviceDnsPolicyCreate, DeviceDnsPolicyOut
 from ..dependencies import get_current_user, owner_or_admin
 from ..config import settings
 
@@ -117,4 +117,95 @@ def _sync_adguard(db: Session, tenant_id):
         DnsPolicy.policy_type == "blacklist"
     ).all()
     rules = [f"||{p.domain}^" for p in blocked]
+
+    # Per-client rules using AdGuard's $client= syntax
+    device_rules = (
+        db.query(DeviceDnsPolicy, Endpoint)
+        .join(Endpoint, DeviceDnsPolicy.endpoint_id == Endpoint.id)
+        .filter(DeviceDnsPolicy.tenant_id == tenant_id)
+        .all()
+    )
+    for dr, ep in device_rules:
+        if ep.ip_address:
+            if dr.policy_type == "blacklist":
+                rules.append(f"||{dr.domain}^$client={ep.ip_address}")
+            else:
+                rules.append(f"@@||{dr.domain}^$client={ep.ip_address}")
+
     adguard_request("POST", "/control/filtering/set_rules", json={"rules": rules})
+
+
+@router.get("/devices")
+def list_devices_for_dns(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    endpoints = db.query(Endpoint).filter(Endpoint.tenant_id == user.tenant_id).all()
+    result = []
+    for ep in endpoints:
+        count = db.query(DeviceDnsPolicy).filter(DeviceDnsPolicy.endpoint_id == ep.id).count()
+        result.append({
+            "id":         str(ep.id),
+            "hostname":   ep.hostname,
+            "os_type":    ep.os_type,
+            "ip_address": ep.ip_address,
+            "status":     ep.status,
+            "rule_count": count,
+        })
+    return result
+
+
+@router.get("/device-policies", response_model=List[DeviceDnsPolicyOut])
+def list_device_policies(
+    endpoint_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return db.query(DeviceDnsPolicy).filter(
+        DeviceDnsPolicy.tenant_id   == user.tenant_id,
+        DeviceDnsPolicy.endpoint_id == endpoint_id,
+    ).all()
+
+
+@router.post("/device-policies", response_model=DeviceDnsPolicyOut)
+def create_device_policy(
+    body: DeviceDnsPolicyCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(owner_or_admin),
+):
+    ep = db.query(Endpoint).filter(
+        Endpoint.id == body.endpoint_id,
+        Endpoint.tenant_id == user.tenant_id,
+    ).first()
+    if not ep:
+        raise HTTPException(status_code=404, detail="Dispositivo não encontrado")
+    policy = DeviceDnsPolicy(
+        tenant_id=user.tenant_id,
+        endpoint_id=body.endpoint_id,
+        domain=body.domain,
+        policy_type=body.policy_type,
+        category=body.category,
+    )
+    db.add(policy)
+    db.commit()
+    db.refresh(policy)
+    _sync_adguard(db, user.tenant_id)
+    return policy
+
+
+@router.delete("/device-policies/{policy_id}")
+def delete_device_policy(
+    policy_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(owner_or_admin),
+):
+    policy = db.query(DeviceDnsPolicy).filter(
+        DeviceDnsPolicy.id        == policy_id,
+        DeviceDnsPolicy.tenant_id == user.tenant_id,
+    ).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Política não encontrada")
+    db.delete(policy)
+    db.commit()
+    _sync_adguard(db, user.tenant_id)
+    return {"ok": True}

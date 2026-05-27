@@ -107,3 +107,19 @@ class ScanScheduleUpdate(BaseModel):
     frequency: Optional[str] = None   # daily | weekly | monthly
     day_of_week: Optional[int] = None
     hour: Optional[int] = None
+
+class DeviceDnsPolicyCreate(BaseModel):
+    endpoint_id: UUID
+    domain: str
+    policy_type: str   # blacklist | whitelist
+    category: str = "custom"
+
+class DeviceDnsPolicyOut(BaseModel):
+    id: UUID
+    endpoint_id: UUID
+    domain: str
+    policy_type: str
+    category: str
+    created_at: datetime
+    class Config:
+        from_attributes = True

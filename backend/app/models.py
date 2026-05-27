@@ -88,8 +88,9 @@ class Endpoint(Base):
     sca_score      = Column(Integer, default=0)
     last_heartbeat = Column(DateTime)
     registered_at  = Column(DateTime, default=datetime.utcnow)
-    alerts         = relationship("EndpointAlert",         back_populates="endpoint", cascade="all, delete-orphan")
+    alerts          = relationship("EndpointAlert",         back_populates="endpoint", cascade="all, delete-orphan")
     vulnerabilities = relationship("EndpointVulnerability", back_populates="endpoint", cascade="all, delete-orphan")
+    dns_policies    = relationship("DeviceDnsPolicy",       back_populates="endpoint", cascade="all, delete-orphan")
 
 class EndpointAlert(Base):
     __tablename__ = "endpoint_alerts"
@@ -116,6 +117,17 @@ class EndpointVulnerability(Base):
     description = Column(Text)
     detected_at = Column(DateTime, default=datetime.utcnow)
     endpoint    = relationship("Endpoint", back_populates="vulnerabilities")
+
+class DeviceDnsPolicy(Base):
+    __tablename__ = "device_dns_policies"
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id   = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    endpoint_id = Column(UUID(as_uuid=True), ForeignKey("endpoints.id", ondelete="CASCADE"), nullable=False)
+    domain      = Column(String(255), nullable=False)
+    policy_type = Column(String(50), nullable=False)   # blacklist | whitelist
+    category    = Column(String(100), default="custom")
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    endpoint    = relationship("Endpoint", back_populates="dns_policies")
 
 class ScanSchedule(Base):
     __tablename__ = "scan_schedules"

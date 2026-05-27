@@ -8,7 +8,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from .database import engine, Base, get_db, SessionLocal
 from .models import (Tenant, User, DnsPolicy, ScanResult,
-                     Endpoint, EndpointAlert, EndpointVulnerability, ScanSchedule)
+                     Endpoint, EndpointAlert, EndpointVulnerability, ScanSchedule, DeviceDnsPolicy)
 from .auth import hash_password
 from .routers import auth, tenants, dns, scanner, audit, endpoints, chat, lgpd, billing
 from sqlalchemy.orm import Session
