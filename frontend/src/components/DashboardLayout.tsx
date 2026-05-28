@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu, X, ShieldCheck, CreditCard } from 'lucide-react'
+import { Globe, FileSearch, Monitor, LogOut, LayoutDashboard, Bell, Search, Menu, X, ShieldCheck, CreditCard, Users, ScrollText } from 'lucide-react'
 import { logout } from '../api/client'
 import NotificationPanel from './NotificationPanel'
 import UserDropdown from './UserDropdown'
@@ -18,15 +18,17 @@ const C = {
 }
 
 const NAV = [
-  { to: '/app',          icon: 'LayoutDashboard', label: 'Dashboard',  end: true  },
-  { to: '/app/dns',      icon: 'Globe',           label: 'DNS',        end: false },
-  { to: '/app/scanner',  icon: 'FileSearch',      label: 'Scanner',    end: false },
-  { to: '/app/endpoint', icon: 'Monitor',         label: 'Endpoint',   end: false },
-  { to: '/app/lgpd',     icon: 'ShieldCheck',     label: 'LGPD',       end: false },
-  { to: '/app/billing',  icon: 'CreditCard',      label: 'Cobrança',   end: false },
+  { to: '/app',          icon: 'LayoutDashboard', label: 'Dashboard',  end: true,  mobileHide: false },
+  { to: '/app/dns',      icon: 'Globe',           label: 'DNS',        end: false, mobileHide: false },
+  { to: '/app/scanner',  icon: 'FileSearch',      label: 'Scanner',    end: false, mobileHide: false },
+  { to: '/app/endpoint', icon: 'Monitor',         label: 'Endpoint',   end: false, mobileHide: false },
+  { to: '/app/lgpd',     icon: 'ShieldCheck',     label: 'LGPD',       end: false, mobileHide: false },
+  { to: '/app/billing',  icon: 'CreditCard',      label: 'Cobrança',   end: false, mobileHide: true  },
+  { to: '/app/users',    icon: 'Users',           label: 'Equipe',     end: false, mobileHide: true  },
+  { to: '/app/audit',    icon: 'ScrollText',      label: 'Auditoria',  end: false, mobileHide: true  },
 ]
 
-const ICON_MAP: Record<string, any> = { LayoutDashboard, Globe, FileSearch, Monitor, ShieldCheck, CreditCard }
+const ICON_MAP: Record<string, any> = { LayoutDashboard, Globe, FileSearch, Monitor, ShieldCheck, CreditCard, Users, ScrollText }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -242,7 +244,7 @@ export default function DashboardLayout() {
         {/* ── Mobile Bottom Tab Bar ── */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex"
           style={{ background: C.bg, borderTop: C.brd, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {NAV.map(({ to, icon, label, end }) => {
+          {NAV.filter(n => !n.mobileHide).map(({ to, icon, label, end }) => {
             const Icon = ICON_MAP[icon]
             return (
               <NavLink key={to} to={to} end={end}
